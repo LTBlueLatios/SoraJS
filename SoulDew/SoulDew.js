@@ -1,9 +1,9 @@
 /**
- * A class for managing and emitting events.
+ * A highly optimized class for managing and emitting events.
  */
 class SoulDew {
-    #listeners = new Map();
-    #wildcardListeners = [];
+    #listeners = Object.create(null);
+    #wildcardListeners = new Set();
     #isCancelled = false;
 
     /**
@@ -11,20 +11,19 @@ class SoulDew {
      * @param {string} event - The name of the event to listen for.
      * @param {function} listener - The callback function to execute when the event is emitted.
      * @param {boolean} [once=false] - If true, the listener will be automatically removed after being invoked once.
-     * @throws {Error} If event is not a string or listener is not a function.
+     * @throws {TypeError} If event is not a string or listener is not a function.
      */
     on(event, listener, once = false) {
-        if (typeof event !== "string") throw new Error("Event must be a string");
-        if (typeof listener !== "function") throw new Error("Listener must be a function");
+        if (typeof event !== "string" || typeof listener !== "function") {
+            throw new TypeError("Invalid arguments");
+        }
+
         const eventObj = { listener, once };
 
         if (event === "*") {
-            this.#wildcardListeners.push(eventObj);
+            this.#wildcardListeners.add(eventObj);
         } else {
-            if (!this.#listeners.has(event)) {
-                this.#listeners.set(event, []);
-            }
-            this.#listeners.get(event).push(eventObj);
+            (this.#listeners[event] ??= new Set()).add(eventObj);
         }
     }
 
@@ -32,55 +31,56 @@ class SoulDew {
      * Removes an event listener.
      * @param {string} event - The name of the event to remove the listener from.
      * @param {function} listener - The callback function to remove.
-     * @throws {Error} If event is not a string or listener is not a function.
+     * @throws {TypeError} If event is not a string or listener is not a function.
      */
     off(event, listener) {
-        if (typeof event !== "string") throw new Error("Event must be a string");
-        if (typeof listener !== "function") throw new Error("Listener must be a function");
+        if (typeof event !== "string" || typeof listener !== "function") {
+            throw new TypeError("Invalid arguments");
+        }
 
         if (event === "*") {
-            this.#wildcardListeners = this.#removeListener(this.#wildcardListeners, listener);
-        } else if (this.#listeners.has(event)) {
-            const updatedListeners = this.#removeListener(this.#listeners.get(event), listener);
-            if (updatedListeners.length === 0) {
-                this.#listeners.delete(event);
-            } else {
-                this.#listeners.set(event, updatedListeners);
+            for (const eventObj of this.#wildcardListeners) {
+                if (eventObj.listener === listener) {
+                    this.#wildcardListeners.delete(eventObj);
+                    break;
+                }
+            }
+        } else if (this.#listeners[event]) {
+            for (const eventObj of this.#listeners[event]) {
+                if (eventObj.listener === listener) {
+                    this.#listeners[event].delete(eventObj);
+                    if (this.#listeners[event].size === 0) {
+                        delete this.#listeners[event];
+                    }
+                    break;
+                }
             }
         }
     }
 
     /**
-     * @private
-     */
-    #removeListener(listeners, listener) {
-        return listeners.filter(e => e.listener !== listener);
-    }
-
-    /**
      * Emits an event, calling all listeners registered for that event and all wildcard listeners.
      * @param {string} event - The name of the event to emit.
-     * @param {...*} rest - Additional arguments to pass to the event listeners.
+     * @param {...*} args - Additional arguments to pass to the event listeners.
      * @returns {boolean} False if the event was cancelled, true otherwise.
-     * @throws {Error} If event is not a string.
+     * @throws {TypeError} If event is not a string.
      */
-    emit(event, ...rest) {
-        if (typeof event !== "string") throw new Error("Invalid arguments");
+    emit(event, ...args) {
+        if (typeof event !== "string") throw new TypeError("Invalid event type");
 
         this.#isCancelled = false;
         let hasListeners = false;
 
-        if (this.#listeners.has(event)) {
-            const listeners = this.#listeners.get(event);
-            this.#listeners.set(event, this.#callListeners(listeners, ...rest));
+        if (this.#listeners[event]) {
             hasListeners = true;
+            this.#callListeners(this.#listeners[event], args);
             if (this.#isCancelled) return false;
         }
 
-        this.#wildcardListeners = this.#callListeners(this.#wildcardListeners, event, ...rest);
+        this.#callListeners(this.#wildcardListeners, [event, ...args]);
 
-        if (!hasListeners && this.#wildcardListeners.length === 0) {
-            console.error(`Event "${event}" has no listeners. Ensure the event name is correct and listeners are registered.`);
+        if (!hasListeners && this.#wildcardListeners.size === 0) {
+            console.warn(`Event "${event}" has no listeners`);
         }
 
         return !this.#isCancelled;
@@ -88,22 +88,16 @@ class SoulDew {
 
     /**
      * Internal method to call listeners and manage their lifecycle.
-     * @param {Array} listeners - Array of listener objects.
-     * @param {...*} rest - Arguments to pass to each listener.
-     * @returns {Array} Array of remaining listeners.
+     * @param {Set} listeners - Set of listener objects.
+     * @param {Array} args - Arguments to pass to each listener.
      * @private
      */
-    #callListeners(listeners, ...rest) {
-        const remainingListeners = [];
-
+    #callListeners(listeners, args) {
         for (const event of listeners) {
-            event.listener(...rest);
+            event.listener(...args);
             if (this.#isCancelled) break;
-            if (event.once === false) {
-                remainingListeners.push(event);
-            }
+            if (event.once) listeners.delete(event);
         }
-        return remainingListeners;
     }
 
     /**
@@ -118,8 +112,8 @@ class SoulDew {
      * Clears all event listeners.
      */
     clearAllListeners() {
-        this.#listeners.clear();
-        this.#wildcardListeners = [];
+        this.#listeners = Object.create(null);
+        this.#wildcardListeners.clear();
     }
 }
 
