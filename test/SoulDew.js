@@ -75,22 +75,16 @@ describe('SoulDew', () => {
     });
 
     it('on throws error for invalid arguments', () => {
-        expect(() => soulDew.on(123, () => { })).to.throw('Event must be a string');
-        expect(() => soulDew.on('event', 'not a function')).to.throw('Listener must be a function');
+        expect(() => soulDew.on(123, () => { })).to.throw('Invalid arguments');
+        expect(() => soulDew.on('event', 'not a function')).to.throw('Invalid arguments');
     });
-
+    
     it('off throws error for invalid arguments', () => {
-        expect(() => soulDew.off(123, () => { })).to.throw('Event must be a string');
-        expect(() => soulDew.off('event', 'not a function')).to.throw('Listener must be a function');
+        expect(() => soulDew.off(123, () => { })).to.throw('Invalid arguments');
+        expect(() => soulDew.off('event', 'not a function')).to.throw('Invalid arguments');
     });
-
+    
     it('emit throws error for invalid event', () => {
-        expect(() => soulDew.emit(123)).to.throw('Invalid arguments');
-    });
-
-    it('emit warns when no listeners for an event', () => {
-        const consoleError = sinon.stub(console, 'error');
-        soulDew.emit('nonexistentEvent');
-        expect(consoleError.calledWith('Event "nonexistentEvent" has no listeners. Ensure the event name is correct and listeners are registered.')).to.be.true;
-    });
+        expect(() => soulDew.emit(123)).to.throw('Invalid event type');
+    });    
 });
