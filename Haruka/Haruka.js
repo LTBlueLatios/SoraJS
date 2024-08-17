@@ -1,5 +1,7 @@
+import lodash from "https://cdn.jsdelivr.net/npm/lodash/+esm"
+
 /**
- * Haruka - A lightweight component class for the Sora library.
+ * Haruka - A minimal yet powerful component class for the Sora library.
  * @class
  */
 class Haruka {
@@ -48,15 +50,15 @@ class Haruka {
         this.#initializeProperties();
         this.#setupTemplate();
         this.#setupEventDelegation();
-        this.render();
+        this.#render();
         this.onMount();
     }
 
     /**
-         * Sets up the template by importing it from the provided template name.
-         * @throws {Error} If the template is not found.
-         * @private
-         */
+     * Sets up the template by importing it from the provided template name.
+     * @throws {Error} If the template is not found.
+     * @private
+     */
     #setupTemplate() {
         const template = Haruka.getTemplate(this.#templateName);
         if (!template) {
@@ -142,23 +144,19 @@ class Haruka {
     /**
      * Recursively updates state and tracks changed keys.
      * @param {Object} currentState 
-     * @param {Object} newState 
-     * @param {string} [prefix=''] 
+     * @param {Object} newState
      */
-    updateState(currentState, newState, prefix = "") {
-        Object.keys(newState).forEach(key => {
-            const fullKey = prefix ? `${prefix}.${key}` : key;
-            if (typeof newState[key] === "object" && newState[key] !== null && !Array.isArray(newState[key])) {
-                if (typeof currentState[key] !== "object") {
-                    currentState[key] = {};
-                }
-                this.updateState(currentState[key], newState[key], fullKey);
-            } else if (currentState[key] !== newState[key]) {
-                currentState[key] = newState[key];
-                this.#changedKeys.add(fullKey);
-            }
+    updateState(currentState, newState) {
+        lodash.mergeWith(currentState, newState, (objValue, srcValue, key) => {
+            const isDifferent = objValue !== srcValue;
+            const isArraySrc = Array.isArray(srcValue);
+            const isArrayObj = Array.isArray(objValue);
+            const arraysAreDifferent = isArraySrc && (!isArrayObj || !lodash.isEqual(objValue, srcValue));
+    
+            if (isDifferent || arraysAreDifferent) this.#changedKeys.add(key);
+            if (isArraySrc) return srcValue;
         });
-    }
+    }    
 
     /**
      * Returns a copy of the current state.
@@ -166,29 +164,6 @@ class Haruka {
      */
     getState() {
         return { ...this.#state };
-    }
-
-    /**
-     * Gets the default event type for a given element.
-     * @param {HTMLElement} element 
-     * @returns {string}
-     */
-    getDefaultEventType(element) {
-        const defaultEvents = {
-            "a": "click",
-            "button": "click",
-            "form": "submit",
-            "input": "input",
-            "select": "change",
-            "textarea": "input",
-            "img": "load",
-            "video": "play",
-            "audio": "play",
-            "details": "toggle",
-        };
-
-        const tagName = element.tagName.toLowerCase();
-        return defaultEvents[tagName] || "click";
     }
 
     /**
@@ -239,7 +214,7 @@ class Haruka {
         if (!this.#renderScheduled) {
             this.#renderScheduled = true;
             requestAnimationFrame(() => {
-                this.render();
+                this.#render();
                 this.#renderScheduled = false;
             });
         }
@@ -248,12 +223,10 @@ class Haruka {
     /**
      * Renders the component, updating only changed properties.
      */
-    render() {
+    #render() {
         for (const key of this.#changedKeys) {
             const renderMethod = `render${key[0].toUpperCase() + key.slice(1)}`;
-            if (typeof this[renderMethod] === "function") {
-                this[renderMethod](this.#state[key]);
-            }
+            if (typeof this[renderMethod] === "function") this[renderMethod](this.#state[key]);
             this.#updateBindings(key, this.#state[key]);
             this.#updateAttributeBindings(key, this.#state[key]);
         }
