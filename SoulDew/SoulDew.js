@@ -5,6 +5,7 @@ class SoulDew {
     #listeners = Object.create(null);
     #wildcardListeners = new Set();
     #isCancelled = false;
+    #states = new Map();
 
     /**
      * Adds an event listener.
@@ -56,6 +57,46 @@ class SoulDew {
                 }
             }
         }
+    }
+
+
+    /**
+     * Links multiple state objects to the event emitter.
+     * When any state changes, emits a 'stateChange' event specific to that state.
+     * @param {string} stateName - A unique name for the state.
+     * @param {Object} state - The state object to observe.
+     */
+    observeState(stateName, state) {
+        if (typeof stateName !== "string" || typeof state !== "object" || state === null) throw new TypeError("Invalid arguments");
+
+        const stateProxy = new Proxy(state, {
+            set: (target, property, value) => {
+                target[property] = value;
+                this.emit(`stateChange:${stateName}`, property, value);
+                return true;
+            },
+        });
+
+        this.#states.set(stateName, { proxy: stateProxy });
+        return stateProxy;
+    }
+
+    /**
+     * Gets the proxy-wrapped state object by its name.
+     * @param {string} stateName - The name of the state to retrieve.
+     * @returns {Object} The proxy-wrapped state object.
+     */
+    getState(stateName) {
+        const state = this.#states.get(stateName);
+        return state ? state.proxy : undefined;
+    }
+
+    /**
+     * Removes a state from observation.
+     * @param {string} stateName - The name of the state to remove.
+     */
+    removeState(stateName) {
+        this.#states.delete(stateName);
     }
 
     /**
