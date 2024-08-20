@@ -86,5 +86,5 @@ describe('SoulDew', () => {
     
     it('emit throws error for invalid event', () => {
         expect(() => soulDew.emit(123)).to.throw('Invalid event type');
-    });    
+    });
 });
