@@ -59,7 +59,6 @@ class SoulDew {
         }
     }
 
-
     /**
      * Links multiple state objects to the event emitter.
      * When any state changes, emits a 'stateChange' event specific to that state.
@@ -78,7 +77,6 @@ class SoulDew {
         });
 
         this.#states.set(stateName, { proxy: stateProxy });
-        return stateProxy;
     }
 
     /**
