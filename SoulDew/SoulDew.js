@@ -179,7 +179,6 @@ class SoulDew {
         return (this.#listeners[event] && this.#listeners[event].size > 0);
     }
 
-
     /**
      * Clears all event listeners.
      */
