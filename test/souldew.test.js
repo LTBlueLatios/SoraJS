@@ -87,4 +87,50 @@ describe('SoulDew', () => {
     it('emit throws error for invalid event', () => {
         expect(() => soulDew.emit(123)).to.throw('Invalid event type');
     });
+
+    it('observeState sets up state observation', () => {
+        const state = { key: 'value' };
+        soulDew.observeState('testState', state);
+        expect(soulDew.getState('testState')).to.equal(state);
+    });
+
+    it('setState updates state and emits events for changed keys', () => {
+        const state = { key1: 'value1' };
+        soulDew.observeState('testState', state);
+        const emitSpy = sinon.spy(soulDew, 'emit');
+
+        soulDew.setState('testState', { key1: 'value2', key2: 'value3' });
+
+        expect(emitSpy.calledWith('stateChange:testState', 'key1', 'value2')).to.be.true;
+        expect(emitSpy.calledWith('stateChange:testState', 'key2', 'value3')).to.be.true;
+    });
+
+    it('getState retrieves the correct state', () => {
+        const state = { key: 'value' };
+        soulDew.observeState('testState', state);
+        expect(soulDew.getState('testState')).to.deep.equal(state);
+    });
+
+    it('removeState deletes the state observation', () => {
+        const state = { key: 'value' };
+        soulDew.observeState('testState', state);
+        soulDew.removeState('testState');
+        expect(soulDew.getState('testState')).to.be.undefined;
+    });
+
+    it('setState throws error for non-existent state', () => {
+        expect(() => soulDew.setState('nonExistentState', { key: 'value' })).to.throw('State "nonExistentState" not found');
+    });
+
+    it('observeState throws error for invalid arguments', () => {
+        expect(() => soulDew.observeState(123, {})).to.throw('Invalid arguments');
+        expect(() => soulDew.observeState('stateName', 'not an object')).to.throw('Invalid arguments');
+    });
+
+    it('updateState handles array merging correctly', () => {
+        const state = { arrayKey: [1, 2] };
+        soulDew.observeState('testState', state);
+        soulDew.setState('testState', { arrayKey: [1, 2, 3] });
+        expect(state.arrayKey).to.deep.equal([1, 2, 3]);
+    });
 });
