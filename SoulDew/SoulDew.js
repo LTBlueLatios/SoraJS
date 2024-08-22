@@ -165,6 +165,22 @@ class SoulDew {
     }
 
     /**
+     * Checks if there are any listeners for the specified event.
+     * @param {string} event - The name of the event to check for listeners.
+     * @returns {boolean} - True if there are listeners for the event, otherwise false.
+     */
+    hasListeners(event) {
+        if (typeof event !== "string") throw new TypeError("Invalid event type");
+
+        if (event === "*") {
+            return this.#wildcardListeners.size > 0;
+        }
+
+        return (this.#listeners[event] && this.#listeners[event].size > 0);
+    }
+
+
+    /**
      * Clears all event listeners.
      */
     clearAllListeners() {
