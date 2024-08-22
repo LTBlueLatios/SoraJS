@@ -23,7 +23,7 @@ const soulDew = new SoulDew();
 // Test off
 (() => {
     let result = false;
-    const callback = () => { result = !result; };
+    const callback = () => { result = true; };
     soulDew.on('testEvent', callback);
     soulDew.off('testEvent', callback);
     soulDew.emit('testEvent');
