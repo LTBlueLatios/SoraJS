@@ -124,17 +124,14 @@ class SoulDew {
                     continue;
                 }
 
-                for (const key in changes) {
-                    if (Object.hasOwn(changes, key) && currentState[key] !== changes[key]) {
-                        currentState[key] = changes[key];
+                for (const [key, value] of Object.entries(changes)) {
+                    if (currentState[key] !== value) {
+                        currentState[key] = value;
                         if (emitEvent) {
-                            this.emit(`stateChange:${stateName}`, {
-                                key,
-                                value: changes[key],
-                            });
+                            this.emit(`stateChange:${stateName}`, { key, value });
                         }
                     }
-                }
+                }                
             }
 
             this.#stateQueue.clear();
