@@ -14,7 +14,6 @@ const UserCodec = {
         }
     },
     encode(user) {
-        console.log(MiniCodec.encodeString("lol"))
         return [
             user.id,
             ...MiniCodec.encodeString(user.name),

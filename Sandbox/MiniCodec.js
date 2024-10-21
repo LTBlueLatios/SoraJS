@@ -74,13 +74,7 @@ class MiniCodec {
      */
     encode(type, data) {
         const codec = this.#getCodec(type);
-
-        const {
-            shape,
-            encode
-        } = codec;
-
-        return encode(data);
+        return codec.encode(data);
     }
 
     /**
@@ -91,14 +85,7 @@ class MiniCodec {
      */
     decode(type, encoded) {
         const codec = this.#getCodec(type);
-
-        const {
-            decode,
-            shape
-        } = codec;
-        const decoded = decode(encoded);
-
-        return decoded;
+        return codec.decode(encoded);
     }
 
     #getCodec(type) {
@@ -123,7 +110,7 @@ class MiniCodec {
     }
 
     /**
-     * Decodes an encoded array into a string, reading from a position until a null terminator (0).
+     * Decodes an encoded array into a string, reading from a position until an END_OF_STRING sentinel (-1).
      *
      * @param {number[]} encoded - The array of character codes to decode.
      * @param {Object} posRef - A reference object containing the current position in the encoded array.
