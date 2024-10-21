@@ -100,7 +100,7 @@ class MiniCodec {
             throw new Error(`No codec registered for type ${type}`);
         }
 
-        return codec
+        return codec;
     }
 
     /**
