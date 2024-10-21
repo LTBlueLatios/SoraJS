@@ -73,6 +73,9 @@ class MiniCodec {
      * @returns {number[]} Encoded data
      */
     encode(type, data) {
+        if (data === undefined || data === null) {
+            throw new Error('Data cannot be null or undefined');
+        }
         const codec = this.#getCodec(type);
         return codec.encode(data);
     }
