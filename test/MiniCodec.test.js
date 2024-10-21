@@ -34,7 +34,7 @@ const UserCodec = {
                 email: MiniCodec.readString(encoded, posRef),
                 preferences: {
                     theme: MiniCodec.readString(encoded, posRef),
-                    notifications: Boolean(encoded[posRef.pos])
+                    notifications: Boolean(encoded[posRef.pos++])
                 }
             }
         };
