@@ -84,6 +84,9 @@ class MiniCodec {
      * @returns {Object} Decoded data
      */
     decode(type, encoded) {
+        if (!Array.isArray(encoded)) {
+            throw new Error('Encoded data must be a non-null array');
+        }
         const codec = this.#getCodec(type);
         return codec.decode(encoded);
     }
