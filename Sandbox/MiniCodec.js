@@ -110,7 +110,7 @@ class MiniCodec {
      */
     static encodeString(string) {
         return [
-            ...Array.from(string).map(c => c.charCodeAt(0)),
+            ...Array.from(string).map(c => c.codePointAt(0)),
             -1
         ];
     }
