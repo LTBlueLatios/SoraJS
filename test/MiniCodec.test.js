@@ -24,7 +24,7 @@ const UserCodec = {
         ];
     },
     decode(encoded) {
-        let posRef = { pos: 0 };
+        const posRef = { pos: 0 };
 
         return {
             id: encoded[posRef.pos++],
