@@ -126,7 +126,7 @@ class MiniCodec {
     static readString(encoded, posRef) {
         let str = '';
         while (encoded[posRef.pos] !== -1) {
-            str += String.fromCharCode(encoded[posRef.pos]);
+            str += String.fromCodePoint(encoded[posRef.pos]);
             posRef.pos++;
         }
         posRef.pos++;
