@@ -58,10 +58,7 @@ const userData = {
 };
 
 const encoded = codec.encode('user', userData);
-console.log('Encoded Data:', encoded);
-
 const decoded = codec.decode('user', encoded);
-console.log('Decoded Data:', decoded);
 
 const dataMatches = JSON.stringify(userData) === JSON.stringify(decoded);
 console.assert(dataMatches, "Decoded data does not match the original user data. Original: " + JSON.stringify(userData) + ", Decoded: " + JSON.stringify(decoded));
