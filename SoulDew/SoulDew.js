@@ -3,8 +3,10 @@ import AltoMare from "./AltoMare";
 class SoulDew {
     #listeners = new Map();
     #states = new Map();
+    #eventQueue = [];
     #stateQueue = new Map();
     #isProcessingState = false;
+    #isProcessingEvents = false;
     #computedProperties = new Map();
 
     /**
@@ -207,6 +209,33 @@ class SoulDew {
      */
     getComputedProperty(stateName, propertyName) {
         return this.getState(stateName)[propertyName];
+    }
+
+    /**
+     * Adds an event to the event queue instead of processing it immediately.
+     * @param {string} event - The name of the event to queue.
+     * @param {*} [detail] - A value to be passed to the event listener.
+     */
+    queueEvent(event, detail) {
+        AltoMare.checkParams(arguments, ["string", "any"]);
+        this.#eventQueue.push({ event, detail });
+    }
+
+    /**
+     * Processes the event queue, emitting each stored event in order.
+     */
+    processEventQueue() {
+        if (this.#isProcessingEvents) return;
+        this.#isProcessingEvents = true;
+
+        queueMicrotask(() => {
+            while (this.#eventQueue.length > 0) {
+                const { event, detail } = this.#eventQueue.shift();
+                this.emit(event, detail);
+            }
+
+            this.#isProcessingEvents = false;
+        });
     }
 }
 
