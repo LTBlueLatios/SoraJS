@@ -129,7 +129,7 @@ class AltoMare {
         const required = schema.requiredProperties || [];
         const missing = required.find(key => !(key in data));
         if (missing) {
-            throw new Error(`Schema ${schemaName}: required property ${missing} missing`);
+            throw new Error(`Schema ${schemaName}: required property '${missing}' is missing`);
         }
     }
 
