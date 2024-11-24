@@ -7,12 +7,12 @@ class AltoMare {
     #schemas = {};
     #templates = {};
     #validators = {
-        enum: (value, rule) => rule.enum.includes(value),
-        min: (value, rule) => value >= rule.min,
-        max: (value, rule) => value <= rule.max,
-        minLength: (value, rule) => value.length >= rule.minLength,
-        maxLength: (value, rule) => value.length <= rule.maxLength,
-        pattern: (value, rule) => new RegExp(rule.pattern).test(value)
+        enum: (value, enumValues) => enumValues.includes(value),
+        min: (value, minValue) => value >= minValue,
+        max: (value, maxValue) => value <= maxValue,
+        minLength: (value, minLength) => value.length >= minLength,
+        maxLength: (value, maxLength) => value.length <= maxLength,
+        pattern: (value, pattern) => new RegExp(pattern).test(value)
     };
     #typeValidators = {
         string: v => typeof v === "string",
@@ -81,8 +81,7 @@ class AltoMare {
      */
     validate(schemaName, data) {
         const schema = this.get(schemaName);
-        this.#validateRequired(data, schema, schemaName);
-        return this.#validateProperties(data, schema, schemaName);
+        return this.#validateSchema(schemaName, schema, data);
     }
 
     /**
@@ -113,7 +112,11 @@ class AltoMare {
      * @param {string} templateJson - A JSON string containing templates.
      */
     loadTemplates(templateJson) {
-        this.#templates = JSON.parse(templateJson);
+        try {
+            this.#templates = JSON.parse(templateJson);
+        } catch (error) {
+            throw new Error(`Failed to parse templates JSON: ${error.message}`);
+        }
     }
 
     /**
@@ -127,9 +130,9 @@ class AltoMare {
      */
     #validateRequired(data, schema, schemaName) {
         const required = schema.requiredProperties || [];
-        const missing = required.find(key => !(key in data));
+        const missing = required.filter(key => !(key in data));
         if (missing) {
-            throw new Error(`Schema ${schemaName}: required property ${missing} missing`);
+            throw new Error(`Schema ${schemaName}: required property '${missing.join(", ")}' missing`);
         }
     }
 
@@ -144,6 +147,13 @@ class AltoMare {
      * @throws {Error} If any property validation fails.
      */
     #validateProperties(data, schema, schemaName) {
+        const allowedKeys = Object.keys(schema).filter(key => key !== "requiredProperties");
+        const dataKeys = Object.keys(data);
+        const unknownKeys = dataKeys.filter(key => !allowedKeys.includes(key));
+        if (unknownKeys.length > 0) {
+            throw new Error(`Schema ${schemaName}: unknown properties '${unknownKeys.join(", ")}' are not allowed`);
+        }
+
         for (const [key, rule] of Object.entries(schema)) {
             if (key === "requiredProperties" || !(key in data)) continue;
 
@@ -168,6 +178,9 @@ class AltoMare {
      * @throws {Error} If the type validation fails.
      */
     #validateType(value, rule, schemaName) {
+        if (!this.#typeValidators[rule.type]) {
+            throw new Error(`Schema ${schemaName}: unknown type '${rule.type}'`);
+        }
         if (rule.type && !this.#typeValidators[rule.type]?.(value)) {
             throw new Error(`Schema ${schemaName}: type validation failed. Expected ${rule.type}, got ${typeof value}`);
         }
@@ -184,10 +197,17 @@ class AltoMare {
      */
     #validateRules(value, rule, schemaName) {
         for (const [validatorName, validator] of Object.entries(this.#validators)) {
-            if (rule[validatorName] !== undefined && !validator(value, rule)) {
-                throw new Error(`Schema ${schemaName}: ${validatorName} validation failed`);
+            if (rule[validatorName] !== undefined) {
+                if (!validator(value, rule[validatorName])) {
+                    throw new Error(`Schema ${schemaName}: ${validatorName} validation failed`);
+                }
             }
         }
+    }
+
+    #validateSchema(schemaName, schema, data) {
+        this.#validateRequired(data, schema, schemaName);
+        return this.#validateProperties(data, schema, schemaName);
     }
 
     /**
@@ -201,13 +221,13 @@ class AltoMare {
      */
     #validateNested(value, rule, schemaName) {
         if (rule.properties && value) {
-            this.#validateProperties(value, rule.properties, schemaName);
+            this.#validateSchema(schemaName, rule.properties, value);
         }
 
         if (rule.items && Array.isArray(value)) {
             value.forEach((item, index) => {
                 const arraySchemaName = `${schemaName}[${index}]`;
-                this.validate(arraySchemaName, item); // Corrected recursive call
+                this.#validateSchema(arraySchemaName, rule.items, item);
             });
         }
     }
