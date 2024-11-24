@@ -34,7 +34,7 @@ class AltoMare {
      */
     registerValidator(validators) {
         if (typeof validators === "function") {
-            throw new Error("Validator must have a name. Use an object with name as key.");
+            throw new Error("Validator must be an object with validator names as keys and functions as values.");
         }
 
         if (Array.isArray(validators)) {
