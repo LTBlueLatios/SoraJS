@@ -130,7 +130,7 @@ class AltoMare {
      */
     #validateRequired(data, schema, schemaName) {
         const required = schema.requiredProperties || [];
-        const missing = required.filter(key => !(key in data));
+        const missing = required.find(key => !(key in data));
         if (missing) {
             throw new Error(`Schema ${schemaName}: required property '${missing.join(", ")}' missing`);
         }
