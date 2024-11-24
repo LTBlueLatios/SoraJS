@@ -1,6 +1,6 @@
 /**
  * A schema validation system that allows defining, validating, and managing data schemas.
- * 
+ *
  * Made for the Sora.js library
  */
 class AltoMare {
@@ -201,13 +201,13 @@ class AltoMare {
      */
     #validateNested(value, rule, schemaName) {
         if (rule.properties && value) {
-            this.validate(value, rule.properties, schemaName);
+            this.#validateProperties(value, rule.properties, schemaName);
         }
 
         if (rule.items && Array.isArray(value)) {
             value.forEach((item, index) => {
                 const arraySchemaName = `${schemaName}[${index}]`;
-                this.validate(item, rule.items, arraySchemaName);
+                this.validate(arraySchemaName, item); // Corrected recursive call
             });
         }
     }
