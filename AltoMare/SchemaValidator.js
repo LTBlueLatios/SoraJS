@@ -117,6 +117,11 @@ class SchemaValidator {
         const errors = [];
 
         if (typeof data !== "object" || data === null || Array.isArray(data)) {
+            errors.push({
+                path: schemaPath,
+                message: `Invalid data type: expected an object but got ${Array.isArray(data) ? 'array' : typeof data}`,
+                data,
+            });
             return errors;
         }
 
