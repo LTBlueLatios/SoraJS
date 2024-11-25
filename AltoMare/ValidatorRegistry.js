@@ -42,11 +42,19 @@ class ValidatorRegistry {
     }
 
     getValidator(name) {
-        return this.#validators.get(name);
+        const validator = this.#validators.get(name);
+        if (!validator) {
+            throw new Error(`Validator "${name}" not found`);
+        }
+        return validator;
     }
 
     getTypeValidator(name) {
-        return this.#typeValidators.get(name);
+        const validator = this.#typeValidators.get(name);
+        if (!validator) {
+            throw new Error(`Type validator "${name}" not found`);
+        }
+        return validator;
     }
 
     hasValidator(name) {
