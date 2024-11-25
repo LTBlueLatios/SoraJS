@@ -127,9 +127,22 @@ class SchemaValidator {
         }
 
         const allowedKeys = Object.keys(schema).filter(key => key !== "requiredProperties");
+        if (allowedKeys.length === 0) {
+            // If no properties are defined, skip unknown property checks
+            allowedKeys.push(...Object.keys(data));
+        }
         const dataKeys = Object.keys(data);
         const unknownKeys = dataKeys.filter(key => !allowedKeys.includes(key));
+```
 
+Solution 2:
+```suggestion
+        const allowedKeys = Object.keys(schema).filter(key => key !== "requiredProperties");
+        const dataKeys = Object.keys(data);
+        let unknownKeys = [];
+        if (allowedKeys.length > 0) {
+            unknownKeys = dataKeys.filter(key => !allowedKeys.includes(key));
+        }
         if (unknownKeys.length > 0) {
             errors.push({
                 path: schemaPath,
