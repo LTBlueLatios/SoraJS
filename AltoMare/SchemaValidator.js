@@ -101,12 +101,14 @@ class SchemaValidator {
     validateRequired(data, schema, schemaPath) {
         const errors = [];
         const required = schema.requiredProperties || [];
-        const missing = required.find(key => !(key in data));
-        if (missing) {
-            errors.push({
-                path: schemaPath,
-                message: `Required property '${missing}' is missing`,
-                data,
+        const missingProperties = required.filter(key => !(key in data));
+        if (missingProperties.length > 0) {
+            missingProperties.forEach(key => {
+                errors.push({
+                    path: `${schemaPath}.${key}`,
+                    message: `Required property '${key}' is missing`,
+                    data,
+                });
             });
         }
         return errors;
