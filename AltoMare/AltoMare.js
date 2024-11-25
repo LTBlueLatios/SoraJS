@@ -9,16 +9,15 @@ class AltoMare {
 
     constructor(mode = "silent") {
         this.#registry = new ValidatorRegistry();
-        // must be called after registry, otherwise
         this.checkParams(arguments, ["string"]);
         this.#validator = new SchemaValidator(this.#registry, mode);
     }
 
-    registerValidator(validators) {
-        this.checkParams(arguments, ["function"]);
+    registerValidators(validators) {
+        this.checkParams(arguments, ["object"]);
 
         if (Array.isArray(validators)) {
-            validators.forEach(validator => this.registerValidator(validator));
+            validators.forEach(validator => this.registerValidators(validator));
             return;
         }
 

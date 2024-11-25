@@ -30,7 +30,7 @@ function it(testName, testFunction) {
 const altoMare = new AltoMare("test");
 
 function setupTestEnvironment() {
-    altoMare.registerValidator({
+    altoMare.registerValidators({
         isEven: (value) => value % 2 === 0,
         lettersOnly: (value) => /^[A-Za-z]+$/.test(value),
         uniqueArray: (arr) => new Set(arr).size === arr.length,
