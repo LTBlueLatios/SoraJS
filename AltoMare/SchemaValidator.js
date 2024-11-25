@@ -45,7 +45,6 @@ class SchemaValidator {
                 path: schemaPath,
                 message: `Unknown type '${rule.type}'`,
             });
-            return errors;
         }
 
         if (!typeValidator(value)) {
