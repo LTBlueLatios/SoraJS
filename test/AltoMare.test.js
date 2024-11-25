@@ -71,9 +71,6 @@ function setupTestEnvironment() {
         },
         tags: {
             type: "array",
-            items: {
-                type: "string"
-            },
             uniqueArray: true
         }
     });
