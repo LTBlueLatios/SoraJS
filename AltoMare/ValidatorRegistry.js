@@ -27,26 +27,45 @@ class ValidatorRegistry {
         this.registerType("any", () => true);
     }
 
-    register(name, validator) {
+    #validateRegistration(name, validator, type) {
+        if (typeof name !== "string" || !name.trim()) {
+            throw new Error(`${type} name must be a non-empty string`);
+        }
         if (typeof validator !== "function") {
-            throw new Error("Validator must be a function");
+            throw new Error(`${type} must be a function`);
+        }
+    }
+
+    register(name, validator) {
+        this.#validateRegistration(name, validator, "Validator");
+        if (this.hasValidator(name)) {
+            throw new Error(`Validator "${name}" already exists`);
         }
         this.#validators.set(name, validator);
     }
 
     registerType(name, validator) {
-        if (typeof validator !== "function") {
-            throw new Error("Type validator must be a function");
+        this.#validateRegistration(name, validator, "Type validator");
+        if (this.hasTypeValidator(name)) {
+            throw new Error(`Type validator "${name}" already exists`);
         }
         this.#typeValidators.set(name, validator);
     }
 
     getValidator(name) {
-        return this.#validators.get(name);
+        const validator = this.#validators.get(name);
+        if (!validator) {
+            throw new Error(`Validator "${name}" not found`);
+        }
+        return validator;
     }
 
     getTypeValidator(name) {
-        return this.#typeValidators.get(name);
+        const validator = this.#typeValidators.get(name);
+        if (!validator) {
+            throw new Error(`Type validator "${name}" not found`);
+        }
+        return validator;
     }
 
     hasValidator(name) {

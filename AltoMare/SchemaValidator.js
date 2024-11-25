@@ -45,7 +45,6 @@ class SchemaValidator {
                 path: schemaPath,
                 message: `Unknown type '${rule.type}'`,
             });
-            return errors;
         }
 
         if (!typeValidator(value)) {
@@ -102,12 +101,14 @@ class SchemaValidator {
     validateRequired(data, schema, schemaPath) {
         const errors = [];
         const required = schema.requiredProperties || [];
-        const missing = required.find(key => !(key in data));
-        if (missing) {
-            errors.push({
-                path: schemaPath,
-                message: `Required property '${missing}' is missing`,
-                data,
+        const missingProperties = required.filter(key => !(key in data));
+        if (missingProperties.length > 0) {
+            missingProperties.forEach(key => {
+                errors.push({
+                    path: `${schemaPath}.${key}`,
+                    message: `Required property '${key}' is missing`,
+                    data,
+                });
             });
         }
         return errors;
@@ -117,13 +118,31 @@ class SchemaValidator {
         const errors = [];
 
         if (typeof data !== "object" || data === null || Array.isArray(data)) {
+            errors.push({
+                path: schemaPath,
+                message: `Invalid data type: expected an object but got ${Array.isArray(data) ? 'array' : typeof data}`,
+                data,
+            });
             return errors;
         }
 
         const allowedKeys = Object.keys(schema).filter(key => key !== "requiredProperties");
+        if (allowedKeys.length === 0) {
+            // If no properties are defined, skip unknown property checks
+            allowedKeys.push(...Object.keys(data));
+        }
         const dataKeys = Object.keys(data);
         const unknownKeys = dataKeys.filter(key => !allowedKeys.includes(key));
+```
 
+Solution 2:
+```suggestion
+        const allowedKeys = Object.keys(schema).filter(key => key !== "requiredProperties");
+        const dataKeys = Object.keys(data);
+        let unknownKeys = [];
+        if (allowedKeys.length > 0) {
+            unknownKeys = dataKeys.filter(key => !allowedKeys.includes(key));
+        }
         if (unknownKeys.length > 0) {
             errors.push({
                 path: schemaPath,

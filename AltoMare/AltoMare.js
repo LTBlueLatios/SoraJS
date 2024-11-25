@@ -48,7 +48,7 @@ class AltoMare {
 
     checkParams(args, types) {
         if (!Array.isArray(types)) {
-            throw new Error("Both arguments must be arrays");
+            throw new Error("Second argument 'types' must be an array");
         }
 
         if (args.length !== types.length) {

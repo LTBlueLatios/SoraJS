@@ -47,12 +47,12 @@ function setupTestEnvironment() {
             },
             email: {
                 type: "string",
-                pattern: "^[^@]+@[^@]+\\.[^@]+$"
+                pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
             }
         }
     };
 
-    altoMare.loadTemplates(JSON.stringify(templates));
+    altoMare.loadTemplates(templates);
 
     altoMare.register("product", {
         requiredProperties: ["id", "name", "price"],
@@ -201,7 +201,7 @@ function runTests() {
         it('should retrieve premium user schema', () => {
             const schema = altoMare.get("premiumUser");
             assert(
-                schema && schema.email && schema.subscriptionTier,
+                schema?.email && schema?.subscriptionTier,
                 "Premium user schema should be retrievable"
             );
         });
