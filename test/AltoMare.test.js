@@ -52,7 +52,7 @@ function setupTestEnvironment() {
         }
     };
 
-    altoMare.loadTemplates(JSON.stringify(templates));
+    altoMare.loadTemplates(templates);
 
     altoMare.register("product", {
         requiredProperties: ["id", "name", "price"],
