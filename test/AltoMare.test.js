@@ -201,7 +201,7 @@ function runTests() {
         it('should retrieve premium user schema', () => {
             const schema = altoMare.get("premiumUser");
             assert(
-                schema && schema.email && schema.subscriptionTier,
+                schema?.email && schema?.subscriptionTier,
                 "Premium user schema should be retrievable"
             );
         });
