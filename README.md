@@ -7,4 +7,4 @@ As the days go by, I am slowly integrating more and more philosophy into this pr
 
 ## Warning
 
-If you're a person who codes in step by step instructions or thinks in a linear model (ex: computer scientist, normal developer aka not a software engineer, etc.), this library is not for you. It's recommended to not use it, it's very easy to land in a pitfall if you do. I'll create a translation of conceptual abstractions down to linear models when this library fully completed. Though, to be honest, the best solution is that your software engineer already did this task for you.
+If you're a person who codes in step by step instructions or thinks in a linear model (ex: computer scientist, normal developer aka not a software engineer, etc.), this library is not for you. It's recommended to not use it, it's very easy to land in a pitfall if you do. I'll create a translation of high level, abstracted concepts down to low level, linear models when this library is fully completed. Though, to be honest, the best solution is that your software engineer already did this task for you.
