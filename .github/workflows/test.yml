@@ -19,7 +19,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '21'
+        node-version: '23'
 
     - name: Run tests
       run: node --test tests/*.test.js
