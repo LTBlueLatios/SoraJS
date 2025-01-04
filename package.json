@@ -1,18 +1,13 @@
 {
-  "name": "sora",
+  "name": "sorajs",
   "version": "1.0.0",
-  "description": "A library of functional modules made to suit the needs of it's developer. Follows the principles of \"small but mighty\" and coded in pure Javascript.",
+  "description": "A library of highly specialised modules made to be solution-agnostic tools. Make the right way the easy way.",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "mocha 'test/**/*.js'"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "chai": "^5.1.1",
-    "mocha": "^10.7.3",
-    "sinon": "^18.0.0"
-  }
+  "license": "ISC"
 }

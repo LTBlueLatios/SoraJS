@@ -1,7 +1,8 @@
 # Sora
-A library of highly specialised modules made to be solution-agnostic tools.
 
-## Sora is being paused for maintenance. 
+A library of highly specialised modules made to be solution-agnostic tools. Make the right way the easy way.
+
+## Sora is being paused for maintenance
 
 As the days go by, I am slowly integrating more and more philosophy into this project. Sora.js is going through a massive reform, however it's core philosophy true to its core. Each module is made to be a solution-agnostic tool that isn't anything in its current state, but has the potential to be an incredibly impactful tool.
 
