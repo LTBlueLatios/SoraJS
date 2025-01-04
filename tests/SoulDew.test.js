@@ -1,5 +1,5 @@
 import test, { afterEach, before, beforeEach, describe } from "node:test";
-import SoulDew from "./SoulDew.js";
+import SoulDew from "../SoulDew/SoulDew.js";
 import assert, { AssertionError } from "node:assert";
 
 const events = new SoulDew();
@@ -8,10 +8,6 @@ const TEST_CONSTANTS = {
 };
 
 describe("SoulDew Integrity Test", async () => {
-    before(() => {
-
-    });
-
     afterEach(() => {
         events.removeAllPipelines();
     });
