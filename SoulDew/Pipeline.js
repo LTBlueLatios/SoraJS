@@ -1,3 +1,5 @@
+import { checkParams, TYPE_CONSTANTS } from "../Utilities/CheckType.js";
+
 /**
  * @class
  */
@@ -28,6 +30,8 @@ class Pipeline {
      * @throws {Error} If event is not registered for this pipeline
      */
     emit(eventName, data) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.ANY]);
+
         if (!this.#validEvents.has(eventName)) {
             throw new Error(`Event ${eventName} is not registered for pipeline ${this.#name}`);
         }
@@ -50,6 +54,8 @@ class Pipeline {
      * @returns {*} Response from the first handler that returns a non-undefined value
      */
     request(eventName, data) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.ANY]);
+
         if (!this.#validEvents.has(eventName)) {
             throw new Error(`Event ${eventName} is not registered for pipeline ${this.#name}`);
         }
@@ -72,6 +78,8 @@ class Pipeline {
      * @throws {Error} If event is not registered for this pipeline
      */
     on(eventName, handler) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
+
         if (!this.#validEvents.has(eventName)) {
             throw new Error(`Event ${eventName} is not registered for pipeline ${this.#name}`);
         }
@@ -90,6 +98,8 @@ class Pipeline {
      * @throws {Error} If event is not registered for this pipeline
      */
     onRequest(eventName, handler) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
+
         if (!this.#validEvents.has(eventName)) {
             throw new Error(`Event ${eventName} is not registered for pipeline ${this.#name}`);
         }
@@ -107,6 +117,8 @@ class Pipeline {
      * @param {Function} handler - Handler to remove
      */
     off(eventName, handler) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
+
         const handlers = this.#handlers.get(eventName);
         if (handlers) {
             handlers.delete(handler);
@@ -123,6 +135,8 @@ class Pipeline {
      * @param {Function} handler - Handler to remove
      */
     offRequest(eventName, handler) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
+
         const handlers = this.#responseHandlers.get(eventName);
         if (handlers) {
             handlers.delete(handler);

@@ -1,4 +1,5 @@
 import Pipeline from "./Pipeline.js";
+import { checkParams, TYPE_CONSTANTS } from "../Utilities/CheckType.js";
 
 /**
  * @class
@@ -17,6 +18,8 @@ class SoulDew {
      * @returns {Pipeline} The created pipeline instance
      */
     createPipeline(name, validEvents) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.OBJECT]);
+
         if (this.#pipelines.has(name)) {
             throw new Error(`Pipeline ${name} already exists`);
         }
@@ -33,6 +36,8 @@ class SoulDew {
      * @returns {Pipeline} The requested pipeline instance
      */
     getPipeline(name) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING]);
+
         const pipeline = this.#pipelines.get(name);
         if (!pipeline) {
             throw new Error(`Pipeline ${name} does not exist`);
@@ -46,6 +51,7 @@ class SoulDew {
      * @param {string} name - Name of the pipeline to remove
      */
     removePipeline(name) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING]);
         this.#pipelines.delete(name);
     }
 
