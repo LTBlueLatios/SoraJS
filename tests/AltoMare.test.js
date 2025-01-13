@@ -26,51 +26,53 @@ altoMare.registerSchema({
     required: ["name", "age", "isStudent"]
 });
 
-test("validates basic person schema successfully", () => {
-    const person = {
-        name: "John Doe",
-        age: 30,
-        isStudent: true
-    };
-    const result = altoMare.interpret("person", person);
-    assert.strictEqual(result.valid, true);
-});
+describe("AltoMare Integrity Test", () => {
+    test("validates basic person schema successfully", () => {
+        const person = {
+            name: "John Doe",
+            age: 30,
+            isStudent: true
+        };
+        const result = altoMare.interpret("person", person);
+        assert.strictEqual(result.valid, true);
+    });
 
-test("fails validation with invalid name", () => {
-    const invalidPerson = {
-        name: "John123",
-        age: 30,
-        isStudent: true
-    };
-    const result = altoMare.interpret("person", invalidPerson);
-    assert.strictEqual(result.valid, false);
-});
+    test("fails validation with invalid name", () => {
+        const invalidPerson = {
+            name: "John123",
+            age: 30,
+            isStudent: true
+        };
+        const result = altoMare.interpret("person", invalidPerson);
+        assert.strictEqual(result.valid, false);
+    });
 
-test("fails validation with age out of range", () => {
-    const invalidPerson = {
-        name: "John Doe",
-        age: 200,
-        isStudent: true
-    };
-    const result = altoMare.interpret("person", invalidPerson);
-    assert.strictEqual(result.valid, false);
-});
+    test("fails validation with age out of range", () => {
+        const invalidPerson = {
+            name: "John Doe",
+            age: 200,
+            isStudent: true
+        };
+        const result = altoMare.interpret("person", invalidPerson);
+        assert.strictEqual(result.valid, false);
+    });
 
-test("fails validation with wrong type", () => {
-    const invalidPerson = {
-        name: "John Doe",
-        age: "30",
-        isStudent: true
-    };
-    const result = altoMare.interpret("person", invalidPerson);
-    assert.strictEqual(result.valid, false);
-});
+    test("fails validation with wrong type", () => {
+        const invalidPerson = {
+            name: "John Doe",
+            age: "30",
+            isStudent: true
+        };
+        const result = altoMare.interpret("person", invalidPerson);
+        assert.strictEqual(result.valid, false);
+    });
 
-test("fails validation with missing properties", () => {
-    const incompletePerson = {
-        name: "John Doe",
-        age: 30
-    };
-    const result = altoMare.interpret("person", incompletePerson);
-    assert.strictEqual(result.valid, false);
+    test("fails validation with missing properties", () => {
+        const incompletePerson = {
+            name: "John Doe",
+            age: 30
+        };
+        const result = altoMare.interpret("person", incompletePerson);
+        assert.strictEqual(result.valid, false);
+    });
 });
