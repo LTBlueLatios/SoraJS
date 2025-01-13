@@ -1,6 +1,6 @@
-import test, { afterEach, before, beforeEach, describe } from "node:test";
+import test, { afterEach, describe } from "node:test";
 import SoulDew from "../SoulDew/SoulDew.js";
-import assert, { AssertionError } from "node:assert";
+import assert from "node:assert";
 
 const events = new SoulDew();
 const TEST_CONSTANTS = {
