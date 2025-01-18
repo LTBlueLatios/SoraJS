@@ -1,6 +1,3 @@
-// who said I needed typescript?
-// todo: replace with AltoMare extension
-
 const TYPE_CONSTANTS = {
     STRING: "string",
     NUMBER: "number",
@@ -14,12 +11,28 @@ const TYPE_CONSTANTS = {
     ANY: "any",
 };
 
+/**
+ * Checks the parameters of a function. However you decide to use this is
+ * only enforced by implicit rules, however it's best that you use this to
+ * check only exposed functions and class methods.
+ *
+ * @param {*} params
+ * @param {*} types
+ */
 function checkParams(params, types) {
     for (let i = 0; i < params.length; i++) {
         checkType(params[i], types[i]);
     }
 }
 
+/**
+ * A function to check the type of a value to its intended type.
+ * If a mismatch is found, then a verbose `TypeError` is thrown.
+ *
+ * @param {*} value
+ * @param {*} type
+ * @returns
+ */
 function checkType(value, type) {
     if (type === TYPE_CONSTANTS.ANY) return;
 

@@ -1,6 +1,6 @@
 import AltoMare from "../AltoMare/AltoMare.js";
 import Validator from "../AltoMare/Interpreters/Validator.js";
-import test, { afterEach, describe } from "node:test";
+import test, { describe } from "node:test";
 import assert from "assert";
 
 const altoMare = new AltoMare([], [Validator]);

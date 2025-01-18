@@ -2,8 +2,6 @@
  * AltoMare - General purpose schema manager
  * Currently a Proof of Concept
  * @class
- * @description A class that handles schema validation and interpretation through registered interpreters
- * @example
  */
 class AltoMare {
     #schemas = new Map()

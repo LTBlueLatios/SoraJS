@@ -25,7 +25,11 @@ class SoulDew {
         }
         const pipeline = new Pipeline(name, validEvents);
         this.#pipelines.set(name, pipeline);
-        return pipeline;
+
+        return {
+            pipeline,
+            delete: () => this.removePipeline(name),
+        };
     }
 
     /**
