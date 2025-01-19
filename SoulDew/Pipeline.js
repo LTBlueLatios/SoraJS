@@ -22,19 +22,19 @@ import { checkParams, TYPE_CONSTANTS } from "../Utilities/CheckType.js";
 class Pipeline {
     /**
      *
-    * @typedef {import('./types.js').EventHandler<T>} EventHandler
-    * @typedef {import('./types.js').RequestHandler<T, R>} RequestHandler
-    * @typedef {import('./types.js').EmitOptions} EmitOptions
+     * @typedef {import('./types.js').EventHandler<T>} EventHandler
+     * @typedef {import('./types.js').RequestHandler<T, R>} RequestHandler
+     * @typedef {import('./types.js').EmitOptions} EmitOptions
      */
     /** @type {string} */
     #name;
     /** @type {Set<string>} */
     #validEvents;
-    /** @type {Map<string, Set<import('./types.js').EventHandler<T>>>} */
+    /** @type {Map<string, Set<EventHandler>>} */
     #handlers = new Map();
-    /** @type {Map<string, Set<import('./types.js').RequestHandler<T, R>>>} */
+    /** @type {Map<string, Set<RequestHandler>>} */
     #responseHandlers = new Map();
-    /** @type {Set<import('./types.js').EventHandler<T> | import('./types.js').RequestHandler<T, R>>} */
+    /** @type {Set<EventHandler | RequestHandler>} */
     #sleeping = new Set();
 
     /**
