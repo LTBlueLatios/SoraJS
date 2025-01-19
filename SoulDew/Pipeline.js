@@ -1,28 +1,47 @@
 import { checkParams, TYPE_CONSTANTS } from "../Utilities/CheckType.js";
 
 /**
- * @class
  *
- * # Pipeline Philosophy
+ * @template T - Type of data passed through the pipeline
+ * @template [R=any] - Type of data returned by request handlers
  *
- * ##
- * We've already added sleeping and once functionality.
+ * @abstract
  *
- * We need to add custom emitters and a priority queue. Big changes
- * are being held back for now, like splitting handlers into workers.
- * We also need to add configuration for the general pipeline.
+ * Pipeline is responsible for all data communications and event
+ * handling within `SoulDew`. This class should never be exported and used
+ * on its own.
+ *
+ * Each created pipeline instance is an isolated instance that has no
+ * knowledge of anything outside of it.
+ *
+ * @todo Custom Emitters, Priority Queue
+ * @todo Predicates
+ * @todo [Complex] Multi-threaded handlers
+ * @todo [Complex] Event batching and processing
  */
 class Pipeline {
+    /**
+     *
+    * @typedef {import('./types.js').EventHandler<T>} EventHandler
+    * @typedef {import('./types.js').RequestHandler<T, R>} RequestHandler
+    * @typedef {import('./types.js').EmitOptions} EmitOptions
+     */
+    /** @type {string} */
     #name;
+    /** @type {Set<string>} */
     #validEvents;
+    /** @type {Map<string, Set<import('./types.js').EventHandler<T>>>} */
     #handlers = new Map();
+    /** @type {Map<string, Set<import('./types.js').RequestHandler<T, R>>>} */
     #responseHandlers = new Map();
+    /** @type {Set<import('./types.js').EventHandler<T> | import('./types.js').RequestHandler<T, R>>} */
     #sleeping = new Set();
 
     /**
-     * @constructor
-     * @param {string} name
-     * @param {string[]} validEvents
+     * Creates a new Pipeline instance
+     * @param {string} name - Name of the pipeline
+     * @param {string[]} validEvents - List of valid event names
+     * @throws {Error} If name is empty or validEvents is empty
      */
     constructor(name, validEvents) {
         this.#name = name;
@@ -34,14 +53,12 @@ class Pipeline {
      * Unlike traditional event emitters, events are validated against the pipeline's
      * registered event types.
      *
-     *
      * @param {string} eventName - Name of the event to emit
-     * @param {*} data - Data to pass to handlers
-     * @param {object} requiresAcknowledgement - Whether to return an acknowledgement
+     * @param {T} data - Data to pass to handlers
+     * @param {import('./types.js').EmitOptions} [options={}] - Configuration options for the emit operation
+     * @returns {boolean|void} Returns boolean if requiresAcknowledgement is true
      * @throws {Error} If event is not registered for this pipeline
      */
-    // This is where we have a special problem, since options is an object but
-    // requires a schema to verify. I bet this is where we use AltoMare to handle the problem.
     emit(eventName, data, options = {}) {
         checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.ANY, TYPE_CONSTANTS.OBJECT]);
 
@@ -63,14 +80,14 @@ class Pipeline {
     }
 
     /**
-      * Makes a request through the pipeline and expects a response.
-      * This implements the bi-directional communication pattern.
-      *
-      * @param {string} eventName - Name of the event to request
-      * @param {*} data - Data to pass to handlers
-      * @throws {Error} If event is not registered for this pipeline
-      * @returns {*} Response from the first handler that returns a non-undefined value
-      */
+     * Makes a request through the pipeline and expects a response.
+     * This implements the bi-directional communication pattern.
+     *
+     * @param {string} eventName - Name of the event to request
+     * @param {T} data - Data to pass to handlers
+     * @returns {R|null} Response from the first handler that returns a non-undefined value
+     * @throws {Error} If event is not registered for this pipeline
+     */
     request(eventName, data) {
         checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.ANY]);
 
@@ -92,8 +109,9 @@ class Pipeline {
      * Registers a handler for one-way events.
      *
      * @param {string} eventName - Event to listen for
-     * @param {Function} handler - Handler function
+     * @param {EventHandler} handler - Handler function
      * @throws {Error} If event is not registered for this pipeline
+     * @returns {void}
      */
     on(eventName, handler) {
         checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
@@ -105,15 +123,21 @@ class Pipeline {
         if (!this.#handlers.has(eventName)) {
             this.#handlers.set(eventName, new Set());
         }
-        this.#handlers.get(eventName).add(handler);
+
+        const handlers = this.#handlers.get(eventName);
+        if (handlers) {
+            handlers.add(handler);
+        }
     }
+
 
     /**
      * Registers a handler for request-response events.
      *
      * @param {string} eventName - Event to handle requests for
-     * @param {Function} handler - Handler function that returns a response
+     * @param {RequestHandler} handler - Handler function that returns a response
      * @throws {Error} If event is not registered for this pipeline
+     * @returns {void}
      */
     onRequest(eventName, handler) {
         checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
@@ -125,14 +149,19 @@ class Pipeline {
         if (!this.#responseHandlers.has(eventName)) {
             this.#responseHandlers.set(eventName, new Set());
         }
-        this.#responseHandlers.get(eventName).add(handler);
+
+        const handlers = this.#handlers.get(eventName);
+        if (handlers) {
+            handlers.add(handler);
+        }
     }
 
     /**
      * Removes an event handler.
      *
      * @param {string} eventName - Event to remove handler from
-     * @param {Function} handler - Handler to remove
+     * @param {EventHandler} handler - Handler to remove
+     * @returns {void}
      */
     off(eventName, handler) {
         checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
@@ -146,12 +175,13 @@ class Pipeline {
         }
     }
 
-    /**
-      * Removes a request handler.
-      *
-      * @param {string} eventName - Event to remove handler from
-      * @param {Function} handler - Handler to remove
-      */
+   /**
+     * Removes a request handler.
+     *
+     * @param {string} eventName - Event to remove handler from
+     * @param {RequestHandler} handler - Handler to remove
+     * @returns {void}
+     */
     offRequest(eventName, handler) {
         checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
 
@@ -164,11 +194,12 @@ class Pipeline {
         }
     }
 
-    /**
+   /**
      * Makes a handler sleep.
      * A sleeping handler will not be called when an event is emitted.
      *
-     * @param {Function} listener - Handler to sleep
+     * @param {EventHandler | RequestHandler} listener - Handler to sleep
+     * @returns {() => void} Function to wake up the handler
      */
     sleep(listener) {
         checkParams(arguments, [TYPE_CONSTANTS.FUNCTION]);
@@ -176,17 +207,36 @@ class Pipeline {
         return () => this.wake(listener);
     }
 
+    /**
+     * Wakes up a sleeping listener.
+     *
+     * @param {EventHandler | RequestHandler} listener - Handler to wake
+     * @returns {void}
+     */
     wake(listener) {
         checkParams(arguments, [TYPE_CONSTANTS.FUNCTION]);
         this.#sleeping.delete(listener);
     }
 
-    once(handler) {
-        checkParams(arguments, [TYPE_CONSTANTS.FUNCTION]);
+    /**
+     * Attaches a handler that is triggered once then deleted.
+     *
+     * @param {string} eventName - Event to listen for once
+     * @param {EventHandler} handler - One-time handler function
+     * @throws {Error} If event is not registered for this pipeline
+     * @returns {void}
+     */
+    once(eventName, handler) {
+        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.FUNCTION]);
+
+        /**
+         * @param {*} data
+         */
         const wrappedHandler = (data) => {
             handler(data);
             this.off(eventName, wrappedHandler);
         };
+
         this.on(eventName, wrappedHandler);
     }
 }

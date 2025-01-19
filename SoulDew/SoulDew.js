@@ -3,6 +3,16 @@ import { checkParams, TYPE_CONSTANTS } from "../Utilities/CheckType.js";
 
 /**
  * @class
+ *
+ * @classdesc SoulDew is an data communications module that handles communication
+ * via events and event emission. The way SoulDew approaches this incredibly unique.
+ * Instead of broadcasting events globally, every event is broadcasted via a specified
+ * pipeline instance. These pipelines are rigorous and explicit, you need to register
+ * events and can only emit those events htat you've registered.
+ *
+ * The reason why I made event emission so explicit is simple: It's so to prevent event
+ * spaghetti. By forcing such explicit rules, I can force all events to fundamentally
+ * be categorised.
  */
 class SoulDew {
     #pipelines = new Map();
@@ -26,10 +36,7 @@ class SoulDew {
         const pipeline = new Pipeline(name, validEvents);
         this.#pipelines.set(name, pipeline);
 
-        return {
-            pipeline,
-            delete: () => this.removePipeline(name),
-        };
+        return pipeline;
     }
 
     /**
