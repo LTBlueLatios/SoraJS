@@ -79,9 +79,9 @@ class AltoMare {
         if (!object || typeof object !== "object") throw new Error("Invalid object provided for validation");
 
         const errors = [];
-        for (const [blockId, block] of AltoMareRegistry.blocks) {
-            if (schema[blockId]) {
-                const blockErrors = block.validate(schema[blockId], object);
+        for (const [blockName, block] of AltoMareRegistry.blocks) {
+            if (schema[blockName]) {
+                const blockErrors = block.validate(schema[blockName], object);
                 errors.push(...blockErrors);
             }
         }
