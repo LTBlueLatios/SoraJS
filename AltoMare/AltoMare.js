@@ -26,7 +26,7 @@ class AltoMare {
      * Creates a new instance of AltoMare and registers default rules and blocks.
      */
     constructor() {
-        this.register("rule", [...DEFAULT_RULES]);
+        this.register("rule", DEFAULT_RULES);
         this.register("block", [DEFAULT_BLOCK]);
     }
 
@@ -39,7 +39,7 @@ class AltoMare {
      * @throws {Error} If items are invalid or registration type is unknown
      */
     register(type, items) {
-        checkParams(arguments, ["string", "array"]);
+        checkParams(arguments, ["string", "object"]);
 
         if (!items || !Array.isArray(items)) throw new Error("Invalid items provided for registration");
         const handlers = {
