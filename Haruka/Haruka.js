@@ -26,6 +26,9 @@ class Haruka {
 
     rootPath;
 
+    /**
+     * @param {string} rootPath
+     */
     constructor(rootPath) {
         this.rootPath = rootPath;
     }
@@ -50,7 +53,7 @@ class Haruka {
      * @param {string} name - The name of the component
      * @param {string} pluginName - The name of the plugin
      * @param {object} options - The options to pass to the plugin
-     * @returns {object} The component
+     * @returns {Promise<any>} The component
     */
     async spawnComponent(name, pluginName, options = {}) {
         checkType(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.OBJECT]);
@@ -71,6 +74,9 @@ class Haruka {
         return component;
     }
 
+    /**
+     * @param {{ html: any; }} plugin
+     */
     async #createElement(plugin) {
         const path = `${this.rootPath}/${plugin.html}.html`;
         const response = await fetch(path);
