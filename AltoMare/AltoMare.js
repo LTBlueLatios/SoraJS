@@ -18,8 +18,11 @@ import { checkParams } from "../Utilities/CheckType.js";
  * property validation, but is designed to be extended through its plugin
  * registration system.
  *
- * @todo Add support for schema inheritance
- * @todo Make rules only apply to specific blocks
+ * @todo Add JSON schema support.
+ * @todo Make rules only apply to specific blocks.
+ * @todo Add async validation support.
+ * @todo Strengthen base rule set and provide more complex rules. Do the same with the default block.
+ * @todo [Far Future] Integrate custom error messages and debugging with Sakura.
  */
 class AltoMare {
     /**
