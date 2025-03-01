@@ -1,4 +1,5 @@
-import { checkParams, TYPE_CONSTANTS } from "../../Utilities/CheckType";
+import { checkParams } from "../../Utilities/CheckType";
+import { PRIMITIVE_TYPE_CONSTANTS } from "../../Utilities/TypeConstants";
 
 /**
  * @typedef {Object} PacketPlugin
@@ -37,12 +38,12 @@ class PacketManager {
      * @param {PacketPlugin[]} plugins
      */
     registerPlugins(plugins) {
-        checkParams(arguments, [TYPE_CONSTANTS.ARRAY]);
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.ARRAY]);
         if (!Array.isArray(plugins)) throw new Error("Plugins must be an array");
 
         plugins.forEach(plugin => {
             if (typeof plugin.type !== "string") throw new PacketPluginError("Plugin must have a name");
-            if (typeof plugin.interpret !== 'function') throw new PacketPluginError("Plugin must implement an update function");
+            if (typeof plugin.interpret !== "function") throw new PacketPluginError("Plugin must implement an update function");
             this.#packetPlugins.set(plugin.type, plugin);
             this.#typeMappings.set(plugin.id, plugin.type);
         });

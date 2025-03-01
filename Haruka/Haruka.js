@@ -1,4 +1,5 @@
-import { checkType, TYPE_CONSTANTS } from "../Utilities/CheckType.js";
+import { checkParams } from "../Utilities/CheckType.js";
+import { PRIMITIVE_TYPE_CONSTANTS } from "../Utilities/TypeConstants.js";
 import StateManager from "../StateManager/StateManager.js";
 
 /**
@@ -18,6 +19,7 @@ import StateManager from "../StateManager/StateManager.js";
  *
  * @todo Provide in-built support for handling child components.
  * @todo [COMPLEX] Create a service worker to handle caching and offline capbilities.
+ * @todo [COMPLEX] Create a server-side handling system with a tempalte. (What about SSR?)
  */
 class Haruka {
     #components = new Map();
@@ -56,7 +58,7 @@ class Haruka {
      * @returns {Promise<any>} The component
     */
     async spawnComponent(name, pluginName, options = {}) {
-        checkType(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.OBJECT]);
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.OBJECT]);
 
         const plugin = this.#plugins.get(pluginName);
         if (!plugin) throw new Error(`Plugin ${pluginName} not found`);
@@ -94,7 +96,7 @@ class Haruka {
      * @param {*} state
      */
     updateState(componentName, state) {
-        checkType(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.OBJECT]);
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.OBJECT]);
 
         const component = this.#components.get(componentName);
         if (!component) throw new Error(`Component ${componentName} not found`);

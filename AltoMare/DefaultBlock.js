@@ -2,18 +2,18 @@ import AltoMareRegistry from "./Registry.js";
 
 const DEFAULT_BLOCK = {
     name: "properties",
-    validate(properties, object) {
+    process(schema, object) {
         const errors = [];
 
-        if (properties.required) {
-            for (const requiredProp of properties.required) {
+        if (schema.required) {
+            for (const requiredProp of schema.required) {
                 if (object[requiredProp] === undefined || object[requiredProp] === null) {
                     errors.push(`Property '${requiredProp}' is required but missing`);
                 }
             }
         }
 
-        for (const [propName, schemaDefinition] of Object.entries(properties)) {
+        for (const [propName, schemaDefinition] of Object.entries(schema)) {
             const value = object[propName];
 
             if (schemaDefinition.required && (value === undefined || value === null)) {
@@ -35,7 +35,8 @@ const DEFAULT_BLOCK = {
             }
         }
 
-        return errors;
+        if (!errors.length < 0) return errors;
+        return true;
     }
 }
 

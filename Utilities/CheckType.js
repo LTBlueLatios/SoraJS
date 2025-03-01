@@ -1,15 +1,4 @@
-const TYPE_CONSTANTS = {
-    STRING: "string",
-    NUMBER: "number",
-    BOOLEAN: "boolean",
-    OBJECT: "object",
-    FUNCTION: "function",
-    UNDEFINED: "undefined",
-    SYMBOL: "symbol",
-    BIGINT: "bigint",
-    NULL: "null",
-    ANY: "any",
-};
+import { PRIMITIVE_TYPE_CONSTANTS } from "./TypeConstants.js";
 
 /**
  * Checks the parameters of a function. However you decide to use this is
@@ -28,20 +17,21 @@ function checkParams(params, types) {
 /**
  * A function to check the type of a value to its intended type.
  * If a mismatch is found, then a verbose `TypeError` is thrown.
+ * @private
  *
  * @param {*} value
  * @param {*} type
  * @returns
  */
 function checkType(value, type) {
-    if (type === TYPE_CONSTANTS.ANY) return;
+    if (type === PRIMITIVE_TYPE_CONSTANTS.ANY) return;
 
     const allowedTypes = Array.isArray(type) ? type : [type];
 
     if (value === undefined || value === null) {
         if (
-            !allowedTypes.includes(TYPE_CONSTANTS.NULL) &&
-            !allowedTypes.includes(TYPE_CONSTANTS.UNDEFINED)
+            !allowedTypes.includes(PRIMITIVE_TYPE_CONSTANTS.NULL) &&
+            !allowedTypes.includes(PRIMITIVE_TYPE_CONSTANTS.UNDEFINED)
         )
             throw new TypeError(
                 `Expected ${allowedTypes.join(" or ")} but got ${value === null ? "null" : "undefined"
@@ -52,7 +42,7 @@ function checkType(value, type) {
 
     let valid = false;
     for (const t of allowedTypes) {
-        if (t === TYPE_CONSTANTS.NULL || t === TYPE_CONSTANTS.UNDEFINED) continue;
+        if (t === PRIMITIVE_TYPE_CONSTANTS.NULL || t === PRIMITIVE_TYPE_CONSTANTS.UNDEFINED) continue;
         if (typeof value === t) {
             valid = true;
             break;
@@ -66,4 +56,4 @@ function checkType(value, type) {
     }
 }
 
-export { checkParams, checkType, TYPE_CONSTANTS };
+export { checkParams };

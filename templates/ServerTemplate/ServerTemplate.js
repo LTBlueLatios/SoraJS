@@ -1,23 +1,8 @@
 import { WebSocketServer } from "ws";
 import zlib from "zlib";
-import { checkParams, TYPE_CONSTANTS } from "../../Utilities/CheckType.js";
 import PacketManager from "./PacketManager.js";
 import Socket from "./Socket.js";
 
-/**
- * Custom error class for server plugin related errors
- * @extends {Error}
- */
-class ServerPluginError extends Error {
-    /**
-     * Creates a new ServerPluginError instance
-     * @param {string} message - The error message
-     */
-    constructor(message) {
-        super(message);
-        this.name = "ServerPluginError";
-    }
-}
 
 /**
  * A fully comprehensive, ready to use, type-safe (including runtime!)
@@ -58,7 +43,7 @@ class Server {
                 // @ts-ignore
                 this.#handleConnection(socket, req);
             } catch (error) {
-                console.error('Error handling connection:', error);
+                console.error("Error handling connection:", error);
                 socket.close();
             }
         });

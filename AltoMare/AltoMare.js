@@ -3,46 +3,23 @@ import DEFAULT_BLOCK from "./DefaultBlock.js";
 import DEFAULT_RULES from "./DefaultRules.js";
 
 import { checkParams } from "../Utilities/CheckType.js";
+import { PRIMITIVE_TYPE_CONSTANTS } from "../Utilities/TypeConstants.js";
 
-/**
- * @version 0.0.1
- * @class
- *
- * @abstract
- * AltoMare is a general schematic system made to be simple and powerful.
- * Its strength lies in not what it already has, but what it can be built to do.
- * Each schema is interpreted in a block-like fashion, and such blocks are
- * designed in a way that is highly extensible.
- *
- * The system comes with a default block and set of rules for basic object
- * property validation, but is designed to be extended through its plugin
- * registration system.
- *
- * @todo Add JSON schema support.
- * @todo Make rules only apply to specific blocks.
- * @todo Add async validation support.
- * @todo Strengthen base rule set and provide more complex rules. Do the same with the default block.
- * @todo [Far Future] Integrate custom error messages and debugging with Sakura.
- */
+const REGISTRY_CONSTANTS = {
+    SCHEMA: "schema",
+    RULE: "rule",
+    BLOCK: "block"
+};
+
+// New definition: An extensible data parser that utilises a schema block format with rule functions.
 class AltoMare {
-    /**
-     * Creates a new instance of AltoMare and registers default rules and blocks.
-     */
     constructor() {
         this.register("rule", DEFAULT_RULES);
         this.register("block", [DEFAULT_BLOCK]);
     }
 
-    /**
-     * Registers a set of items to the AltoMare registry.
-     * Supports registration of schemas, rules, and blocks.
-     *
-     * @param {('schema'|'rule'|'block')} type - The type of items to register
-     * @param {Array<AltoMareSchema|AltoMareRule|AltoMareBlock>} items - The items to register
-     * @throws {Error} If items are invalid or registration type is unknown
-     */
     register(type, items) {
-        checkParams(arguments, ["string", "object"]);
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.OBJECT]);
 
         if (!items || !Array.isArray(items)) throw new Error("Invalid items provided for registration");
         const handlers = {
@@ -56,41 +33,32 @@ class AltoMare {
         handler.call(AltoMareRegistry, items);
     }
 
-    /**
-     * Validates an object against a registered schema.
-     * The validation process:
-     * 1. Retrieves the schema from the registry
-     * 2. For each registered block that has a corresponding section in the schema:
-     *    - Calls the block's validate method
-     *    - Collects any validation errors
-     * 3. If any errors occurred, throws them as a single error message
-     *
-     * @param {string} schemaName - The ID of the schema to validate against
-     * @param {Object} object - The object to validate
-     * @returns {boolean} True if validation succeeds
-     * @throws {Error} If schema is not found, object is invalid, or validation fails
-     */
-    validate(schemaName, object) {
-        checkParams(arguments, ["string", "object"]);
+    process(schemaName, object, options = {
+        thymeMode: "write"
+    }) {
+        checkParams(arguments, [
+            PRIMITIVE_TYPE_CONSTANTS.STRING,
+            PRIMITIVE_TYPE_CONSTANTS.OBJECT,
+            PRIMITIVE_TYPE_CONSTANTS.OBJECT
+        ]);
 
         const schema = AltoMareRegistry.getSchema(schemaName);
-
         if (!schema) throw new Error(`Schema '${schemaName}' not found`);
-        if (!object || typeof object !== "object") throw new Error("Invalid object provided for validation");
+        if (!object || typeof object !== "object") throw new Error("Invalid object provided for processing");
 
-        const errors = [];
+        const results = new Map();
+
         for (const [blockName, block] of AltoMareRegistry.blocks) {
             if (schema[blockName]) {
-                const blockErrors = block.validate(schema[blockName], object);
-                errors.push(...blockErrors);
+                const blockResult = block.process(schema[blockName], object, options);
+                if (blockResult !== undefined) {
+                    results.set(blockName, blockResult);
+                }
             }
         }
 
-        if (errors.length > 0)
-            throw new Error(errors.join("\n"));
-
-        return true;
+        return results;
     }
 }
 
-export default AltoMare;
+export { AltoMare, AltoMareRegistry as Registry, REGISTRY_CONSTANTS };
