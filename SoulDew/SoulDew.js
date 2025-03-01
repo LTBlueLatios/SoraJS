@@ -1,76 +1,142 @@
-import Pipeline from "./Pipeline.js";
-import { checkParams, TYPE_CONSTANTS } from "../Utilities/CheckType.js";
+import { checkParams } from "../Utilities/CheckType.js";
+import { PRIMITIVE_TYPE_CONSTANTS } from "../Utilities/TypeConstants.js";
 
-/**
- * @class
- *
- * @classdesc SoulDew is an data communications module that handles communication
- * via events and event emission. The way SoulDew approaches this incredibly unique.
- * Instead of broadcasting events globally, every event is broadcasted via a specified
- * pipeline instance. These pipelines are rigorous and explicit, you need to register
- * events and can only emit those events htat you've registered.
- *
- * The reason why I made event emission so explicit is simple: It's so to prevent event
- * spaghetti. By forcing such explicit rules, I can force all events to fundamentally
- * be categorised.
- */
-class SoulDew {
-    #pipelines = new Map();
+import createPrivateObject from "../Utilities/PrivateObject.js";
+const PipelinesObject = createPrivateObject()
+    .addPrivateProperty("pipelines", new Map())
+    .addPublicMethod("createPipeline", function (privateState, name, validEvents) {
+        if (privateState.pipelines.has(name)) throw new Error(`Pipeline ${name} already exists`);
 
-    /**
-     * Creates a new pipeline with strictly defined valid events.
-     * Pipelines represent isolated communication channels between system components.
-     * Each pipeline maintains its own set of valid events and handlers.
-     *
-     * @param {string} name - Unique identifier for the pipeline
-     * @param {string[]} validEvents - Array of valid event names for this pipeline
-     * @throws {Error} If pipeline with given name already exists
-     * @returns {Pipeline} The created pipeline instance
-     */
-    createPipeline(name, validEvents) {
-        checkParams(arguments, [TYPE_CONSTANTS.STRING, TYPE_CONSTANTS.OBJECT]);
+        privateState.pipelines.set(name, {
+            name,
+            validEvents: new Set(validEvents),
+            handlers: new Map(),
+            responseHandlers: new Map(),
+            sleeping: new Set()
+        });
+    })
+    .addPublicMethod("getPipeline", function (privateState, name) {
+        if (!privateState.pipelines.has(name)) throw new Error(`Pipeline ${name} does not exist`);
+        return privateState.pipelines.get(name);
+    })
+    .addPublicMethod("removePipeline", function (privateState, name) {
+        privateState.pipelines.delete(name);
+    })
+    .addPublicMethod("removeAllPipelines", function (privateState) {
+        privateState.pipelines.clear();
+    })
+    .build()
 
-        if (this.#pipelines.has(name)) {
-            throw new Error(`Pipeline ${name} already exists`);
+const SOULDEW_STATE = {
+    pipelines: PipelinesObject
+};
+
+const SoulDew = {
+    // Mappings for convenience
+    createPipeline: SOULDEW_STATE.pipelines.createPipeline,
+    getPipeline: SOULDEW_STATE.pipelines.getPipeline,
+    removePipeline: SOULDEW_STATE.pipelines.removePipeline,
+    removeAllPipelines: SOULDEW_STATE.pipelines.removeAllPipelines,
+
+    emit(pipelineName, eventName, data) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.ANY]);
+
+        const pipeline = this.getPipeline(pipelineName);
+        if (!pipeline.validEvents.has(eventName)) throw new Error(`Event ${eventName} is not registered for pipeline ${pipeline.name}`);
+
+        const handlers = pipeline.handlers.get(eventName);
+        if (handlers) {
+            for (const handler of handlers) {
+                if (pipeline.sleeping.has(handler)) continue;
+                handler(data);
+            }
         }
-        const pipeline = new Pipeline(name, validEvents);
-        this.#pipelines.set(name, pipeline);
+    },
+    request(pipelineName, eventName, data) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.ANY]);
 
-        return pipeline;
-    }
-
-    /**
-     * Retrieves an existing pipeline by name.
-     *
-     * @param {string} name - Name of the pipeline to retrieve
-     * @throws {Error} If pipeline does not exist
-     * @returns {Pipeline} The requested pipeline instance
-     */
-    getPipeline(name) {
-        checkParams(arguments, [TYPE_CONSTANTS.STRING]);
-
-        const pipeline = this.#pipelines.get(name);
-        if (!pipeline) {
-            throw new Error(`Pipeline ${name} does not exist`);
+        const pipeline = this.getPipeline(pipelineName);
+        const responseHandlers = pipeline.responseHandlers.get(eventName);
+        if (responseHandlers) {
+            for (const handler of responseHandlers) {
+                const response = handler(data);
+                if (response !== undefined) return response;
+            }
         }
-        return pipeline;
-    }
+        return null;
+    },
+    on(pipelineName, eventName, handler) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.FUNCTION]);
 
-    /**
-     * Removes a pipeline and all its handlers.
-     *
-     * @param {string} name - Name of the pipeline to remove
-     */
-    removePipeline(name) {
-        checkParams(arguments, [TYPE_CONSTANTS.STRING]);
-        this.#pipelines.delete(name);
-    }
+        const pipeline = this.getPipeline(pipelineName);
+        if (!pipeline.validEvents.has(eventName)) throw new Error(`Event ${eventName} is not registered for pipeline ${pipeline.name}`);
 
-    /**
-     * Removes all pipelines and all of their handlers.
-     */
-    removeAllPipelines() {
-        this.#pipelines.clear();
+        if (!pipeline.handlers.has(eventName)) {
+            pipeline.handlers.set(eventName, new Set());
+        }
+
+        const handlers = pipeline.handlers.get(eventName);
+        handlers?.add(handler);
+    },
+    onRequest(pipelineName, eventName, handler) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.FUNCTION]);
+
+        const pipeline = this.getPipeline(pipelineName);
+        if (!pipeline.validEvents.has(eventName)) throw new Error(`Event ${eventName} is not registered for pipeline ${pipeline.name}`);
+
+        if (!pipeline.responseHandlers.has(eventName)) {
+            pipeline.responseHandlers.set(eventName, new Set());
+        }
+
+        const handlers = pipeline.responseHandlers.get(eventName);
+        handlers?.add(handler);
+    },
+    off(pipelineName, eventName, handler) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.FUNCTION]);
+
+        const pipeline = this.getPipeline(pipelineName);
+
+        const handlers = pipeline.handlers.get(eventName);
+        if (handlers) {
+            handlers.delete(handler);
+            if (handlers.size === 0) {
+                pipeline.handlers.delete(eventName);
+            }
+        }
+    },
+    offRequest(pipelineName, eventName, handler) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.FUNCTION]);
+
+        const pipeline = this.getPipeline(pipelineName);
+
+        const handlers = pipeline.responseHandlers.get(eventName);
+        if (handlers) {
+            handlers.delete(handler);
+            if (handlers.size === 0) {
+                pipeline.responseHandlers.delete(eventName);
+            }
+        }
+    },
+    sleep(pipelineName, listen) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.FUNCTION]);
+        const pipeline = this.getPipeline(pipelineName);
+        pipeline.sleeping.add(listen);
+        return () => this.wake(pipelineName, listen);
+    },
+    wake(pipelineName, listen) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.FUNCTION]);
+        const pipeline = this.getPipeline(pipelineName);
+        pipeline.sleeping.delete(listen);
+    },
+    once(pipelineName, eventName, handler) {
+        checkParams(arguments, [PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.STRING, PRIMITIVE_TYPE_CONSTANTS.FUNCTION]);
+
+        const listen = (data) => {
+            handler(data);
+            this.off(pipelineName, eventName, listen);
+        };
+
+        this.on(pipelineName, eventName, listen);
     }
 }
 
