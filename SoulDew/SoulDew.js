@@ -4,7 +4,7 @@ import { PRIMITIVE_TYPE_CONSTANTS } from "../Utilities/TypeConstants.js";
 import createPrivateObject from "../Utilities/PrivateObject.js";
 const PipelinesObject = createPrivateObject()
     .addPrivateProperty("pipelines", new Map())
-    .addPublicMethod("createPipeline", function (privateState, name, validEvents) {
+    .addPublicMethod("createPipeline", (privateState, name, validEvents) => {
         if (privateState.pipelines.has(name)) throw new Error(`Pipeline ${name} already exists`);
 
         privateState.pipelines.set(name, {
@@ -15,14 +15,14 @@ const PipelinesObject = createPrivateObject()
             sleeping: new Set()
         });
     })
-    .addPublicMethod("getPipeline", function (privateState, name) {
+    .addPublicMethod("getPipeline", (privateState, name) => {
         if (!privateState.pipelines.has(name)) throw new Error(`Pipeline ${name} does not exist`);
         return privateState.pipelines.get(name);
     })
-    .addPublicMethod("removePipeline", function (privateState, name) {
+    .addPublicMethod("removePipeline", (privateState, name) => {
         privateState.pipelines.delete(name);
     })
-    .addPublicMethod("removeAllPipelines", function (privateState) {
+    .addPublicMethod("removeAllPipelines", (privateState) => {
         privateState.pipelines.clear();
     })
     .build()

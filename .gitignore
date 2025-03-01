@@ -1,6 +1,7 @@
 # Custom
 /sandbox
 /in-dev
+.vscode
 
 # Logs
 logs
