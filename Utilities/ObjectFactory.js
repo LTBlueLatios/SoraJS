@@ -1,5 +1,5 @@
 /**
- * @fileoverview Provides a factory function to create objects with truly private state.
+ * @fileoverview Provides several factory functions to accomplish different tasks.
  * @author BlueLatios
  * @version 1.0.0
  */
@@ -248,7 +248,6 @@ function createPrivateMethods() {
         },
         getOwnPropertyDescriptor(_, name) {
             if (!methods.has(name)) {
-                3
                 return undefined;
             }
             return Reflect.getOwnPropertyDescriptor(methods, name);
