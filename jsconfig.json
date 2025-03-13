@@ -4,13 +4,15 @@
         "moduleResolution": "Bundler",
         "target": "ES2022",
         "jsx": "react",
-        "checkJs": false,
+        "checkJs": true,
         "allowImportingTsExtensions": true,
         "strictNullChecks": true,
         "strictFunctionTypes": true
     },
     "exclude": [
         "node_modules",
-        "**/node_modules/*"
+        "**/node_modules/*",
+        "in-dev",
+        "sandbox"
     ]
 }

@@ -1,8 +1,9 @@
 import { checkParams } from "../Utilities/CheckType.js";
 import { PRIMITIVE_TYPE_CONSTANTS } from "../Utilities/TypeConstants.js";
 
-import createPrivateObject from "../Utilities/PrivateObject.js";
-const PipelinesObject = createPrivateObject()
+import { createPrivateState } from "../Utilities/ObjectFactory.js";
+
+const PipelinesObject = createPrivateState()
     .addPrivateProperty("pipelines", new Map())
     .addPublicMethod("createPipeline", (privateState, name, validEvents) => {
         if (privateState.pipelines.has(name)) throw new Error(`Pipeline ${name} already exists`);
@@ -14,6 +15,17 @@ const PipelinesObject = createPrivateObject()
             responseHandlers: new Map(),
             sleeping: new Set()
         });
+
+        return {
+            name,
+            on: (eventName, handler) => SoulDew.on(name, eventName, handler),
+            onRequest: (eventName, handler) => SoulDew.onRequest(name, eventName, handler),
+            off: (eventName, handler) => SoulDew.off(name, eventName, handler),
+            offRequest: (eventName, handler) => SoulDew.offRequest(name, eventName, handler),
+            once: (eventName, handler) => SoulDew.once(name, eventName, handler),
+            sleep: (listen) => SoulDew.sleep(name, listen),
+            wake: (listen) => SoulDew.wake(name, listen),
+        }
     })
     .addPublicMethod("getPipeline", (privateState, name) => {
         if (!privateState.pipelines.has(name)) throw new Error(`Pipeline ${name} does not exist`);
@@ -27,12 +39,11 @@ const PipelinesObject = createPrivateObject()
     })
     .build()
 
-const SOULDEW_STATE = {
+const SOULDEW_STATE = Object.seal({
     pipelines: PipelinesObject
-};
+});
 
-const SoulDew = {
-    // Mappings for convenience
+const SoulDew = Object.freeze({
     createPipeline: SOULDEW_STATE.pipelines.createPipeline,
     getPipeline: SOULDEW_STATE.pipelines.getPipeline,
     removePipeline: SOULDEW_STATE.pipelines.removePipeline,
@@ -138,6 +149,6 @@ const SoulDew = {
 
         this.on(pipelineName, eventName, listen);
     }
-}
+})
 
 export default SoulDew;
