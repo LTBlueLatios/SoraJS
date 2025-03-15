@@ -295,9 +295,81 @@ function createSingleton(factory) {
     };
 }
 
+// I'm cooking something to make this more generic
+// Just wait ;3
+// This object currently handles the registration of plugins
+// and provides a way to retrieve them.
+// I'm thinking of making it a bit more generic so it can be used
+// for other purposes as well.
+/**
+ * @typedef {Object} PluginRegistry
+ * @property {function(Array): PluginRegistry} build - Builds the registry with the specified store types
+ * @property {function(string, Array): void} register - Registers a list of items to the registry
+ * @property {function(string, string): Object} get - Retrieves an item from the registry
+ */
+function createPluginRegistry() {
+    const store = new Map();
+    let initialised = false;
+
+    return {
+        /**
+         * Builds the registry with the specified store types.
+         * @param {Array} storeTypes - The types of items to store
+         * @returns {PluginRegistry}
+         */
+        build(storeTypes) {
+            if (!Array.isArray(storeTypes)) throw new Error("storeTypes must be an array");
+
+            for (const type of storeTypes) {
+                store.set(type, new Map());
+            }
+
+            Object.seal(store);
+            initialised = true;
+
+            return this;
+        },
+        /**
+         * Registers a list of items to the registry.
+         * @param {string} type - The type of items to register
+         * @param {Array} items - The items to register
+         */
+        register(type, items) {
+            if (!initialised) throw new Error("Registry is not initialised!");
+            if (!Array.isArray(items)) throw new Error("Invalid items provided for registration");
+
+            const handler = store.get(type);
+            if (!handler) throw new Error(`Unknown type: ${type}`);
+
+            for (const item of items) {
+                if (!item.name) throw new Error("Item must have a name property");
+                handler.set(item.name, item);
+            }
+        },
+        /**
+         * Retrieves an item from the registry.
+         * @param {string} type - The type of item to retrieve
+         * @param {string} data - The name of the item to retrieve
+         * @returns {Object} The item from the registry
+         */
+        get(type, data) {
+            if (!initialised) throw new Error("Registry is not initialised!");
+
+            const handler = store.get(type);
+            if (!handler) throw new Error(`Unknown type: ${type}`);
+
+            const item = handler.get(data);
+            if (!item) throw new Error(`Unknown item: ${data}`);
+
+            return item;
+        }
+    }
+}
+
 export {
     createPrivateState,
     createPrivateMethods,
     createObservable,
-    createSingleton
+    createSingleton,
+    createPluginRegistry
 }

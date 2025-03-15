@@ -4,7 +4,8 @@ import * as ObjectFactory from "./Utilities/ObjectFactory.js"
 import * as MathUtility from "./Utilities/Math.js"
 
 const Sora = Object.freeze({
-    version: "InDev"
+    version: "InDev",
+    enviornment: (typeof window !== "undefined") ? "Browser" : "Node",
 });
 
 export {
