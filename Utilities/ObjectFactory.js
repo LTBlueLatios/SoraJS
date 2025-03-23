@@ -366,10 +366,34 @@ function createPluginRegistry() {
     }
 }
 
+function createMemoisedObject() {
+    const cache = new Map();
+    return {
+        memoise(key, factory) {
+            if (!cache.has(key)) {
+                cache.set(key, factory());
+            }
+            return cache.get(key);
+        },
+        clear() {
+            cache.clear();
+        }
+    };
+}
+
+// Example usage:
+// const memoiser = createMemoisedObject();
+// const obj = memoiser.memoise("myKey", () => {
+//   console.log("Creating object...");
+//   return { foo: "bar" };
+// });
+// console.log(obj); // { foo: "bar" }
+
 export {
     createPrivateState,
     createPrivateMethods,
     createObservable,
     createSingleton,
-    createPluginRegistry
+    createPluginRegistry,
+    createMemoisedObject
 }

@@ -18,6 +18,8 @@ const PipelinesObject = createPrivateState()
 
         return {
             name,
+            emit: (eventName, data) => SoulDew.emit(name, eventName, data),
+            request: (eventName, data) => SoulDew.request(name, eventName, data),
             on: (eventName, handler) => SoulDew.on(name, eventName, handler),
             onRequest: (eventName, handler) => SoulDew.onRequest(name, eventName, handler),
             off: (eventName, handler) => SoulDew.off(name, eventName, handler),
