@@ -1,5 +1,5 @@
 /**
- * @fileoverview Provides several factory functions to accomplish different tasks.
+ * @fileoverview Provides several factory (higher-order) functions to accomplish different tasks.
  * @author BlueLatios
  * @version 1.0.0
  */
@@ -36,12 +36,13 @@
  */
 
 /**
- * Creates an object with truly private state using closures and proxies.
+ * Creates an object with truly private state using closures.
  *
  * This factory function provides a builder pattern for creating objects with
  * encapsulated private state that cannot be accessed from outside the object.
  * Unlike class-based privacy mechanisms, this approach offers genuine encapsulation
- * through JavaScript closures. Compliant with SoraJS architecture.
+ * through JavaScript closures without the performance overhead of proxies.
+ * Compliant with SoraJS architecture.
  *
  * @template T
  * @param {Record<string, any>} [initialState={}]
@@ -49,7 +50,7 @@
  *
  * @example
  * // Create a user object with private API key
- * const user = createPrivateObject()
+ * const user = createPrivateState()
  *   .addPrivateProperty('apiKey', 'secret-key-123')
  *   .addPrivateProperty('email', 'user@example.com')
  *   .addPublicProperty('username', 'johndoe')
@@ -71,32 +72,16 @@
  *   )
  *   .build();
  *
+ * // The object's private state cannot be accessed:
+ * console.log(user.username); // 'johndoe'
+ * console.log(user.apiKey); // undefined - private property not accessible
+ * console.log(user.makeApiCall('data')); // 'Calling data with key secret-key-123'
+ *
  * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures|MDN Closures}
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy|MDN Proxy}
  */
 function createPrivateState(initialState = {}) {
     const privateState = { ...initialState };
-    const publicState = {};
-
-    const handler = {
-        get(target, prop, receiver) {
-            const value = Reflect.get(target, prop, receiver);
-            if (typeof value === "function") {
-                return function (...args) {
-                    return Reflect.apply(value, this, [privateState, ...args]);
-                };
-            }
-            return value;
-        },
-        defineProperty(target, prop, descriptor) {
-            // Prevent attempts to add properties to the proxy
-            return Reflect.defineProperty(target, prop, descriptor);
-        },
-        deleteProperty(target, prop) {
-            // Prevent deleting properties
-            return Reflect.deleteProperty(target, prop);
-        }
-    };
+    const publicInterface = {};
 
     return {
         /**
@@ -120,7 +105,7 @@ function createPrivateState(initialState = {}) {
          * @returns {PrivateObjectBuilder} The builder instance for chaining
          */
         addPublicProperty(key, value) {
-            publicState[key] = value;
+            publicInterface[key] = value;
             return this;
         },
 
@@ -139,7 +124,15 @@ function createPrivateState(initialState = {}) {
          * })
          */
         addPublicMethod(key, fn) {
-            publicState[key] = fn;
+            publicInterface[key] = (...args) => fn(privateState, ...args);
+            return this;
+        },
+
+        addPublicMethods(functions) {
+            // Should handle an object literal with methods
+            Object.entries(functions).forEach(([key, fn]) => {
+                this.addPublicMethod(key, fn);
+            });
             return this;
         },
 
@@ -156,10 +149,10 @@ function createPrivateState(initialState = {}) {
          * })
          */
         addGetter(key, getterFn) {
-            Object.defineProperty(publicState, key, {
+            Object.defineProperty(publicInterface, key, {
                 get: () => getterFn(privateState),
                 enumerable: true,
-                configurable: true
+                configurable: true,
             });
             return this;
         },
@@ -178,10 +171,12 @@ function createPrivateState(initialState = {}) {
          * })
          */
         addSetter(key, setterFn) {
-            Object.defineProperty(publicState, key, {
-                set: (value) => { setterFn(privateState, value); },
+            Object.defineProperty(publicInterface, key, {
+                set: (value) => {
+                    setterFn(privateState, value);
+                },
                 enumerable: true,
-                configurable: true
+                configurable: true,
             });
             return this;
         },
@@ -206,63 +201,26 @@ function createPrivateState(initialState = {}) {
          * )
          */
         addAccessor(key, getterFn, setterFn) {
-            Object.defineProperty(publicState, key, {
+            Object.defineProperty(publicInterface, key, {
                 get: () => getterFn(privateState),
-                set: (value) => { setterFn(privateState, value) },
+                set: (value) => {
+                    setterFn(privateState, value);
+                },
                 enumerable: true,
-                configurable: true
+                configurable: true,
             });
             return this;
         },
 
         /**
-         * Finalizes the object creation and returns the proxied object.
+         * Finalizes the object creation and returns the sealed result.
          * After calling this method, the builder cannot be used anymore.
          *
          * @returns {Object} The constructed object with private state encapsulation
          */
         build() {
-            return new Proxy(publicState, handler);
-        }
-    };
-}
-
-function createPrivateMethods() {
-    const methods = new Map();
-
-    const handler = {
-        get(_, name) {
-            if (typeof name !== "string") return undefined;
-            const method = methods.get(name);
-            if (!method) throw new Error(`Method "${name}" not found`);
-            return (...args) => method(...args);
+            return Object.seal(publicInterface);
         },
-        set() {
-            throw new Error("Cannot modify private methods object directly");
-        },
-        apply() {
-            throw new Error("Cannot invoke private methods object as a function");
-        },
-        defineProperty() {
-            throw new Error("Cannot define properties on private methods object");
-        },
-        getOwnPropertyDescriptor(_, name) {
-            if (!methods.has(name)) {
-                return undefined;
-            }
-            return Reflect.getOwnPropertyDescriptor(methods, name);
-        }
-    };
-
-    return {
-        addMethod(name, fn) {
-            methods.set(name, fn);
-            return this;
-        },
-        build() {
-            Object.freeze(methods);
-            return new Proxy({}, handler);
-        }
     };
 }
 
@@ -275,23 +233,17 @@ function createObservable(initialState = {}) {
             return { ...state };
         },
         subscribe(listener) {
-            if (typeof listener !== "function") throw new TypeError("Listener must be a function");
+            if (typeof listener !== "function")
+                throw new TypeError("Listener must be a function");
             listeners.add(listener);
             return () => listeners.delete(listener);
         },
         update(updater) {
-            if (typeof updater !== "function") throw new TypeError("Updater must be a function");
+            if (typeof updater !== "function")
+                throw new TypeError("Updater must be a function");
             Object.assign(state, updater({ ...state }));
             listeners.forEach((listener) => listener({ ...state }));
-        }
-    };
-}
-
-function createSingleton(factory) {
-    let instance;
-    return function (...args) {
-        if (!instance) instance = factory(...args);
-        return instance;
+        },
     };
 }
 
@@ -318,7 +270,8 @@ function createPluginRegistry() {
          * @returns {PluginRegistry}
          */
         build(storeTypes) {
-            if (!Array.isArray(storeTypes)) throw new Error("storeTypes must be an array");
+            if (!Array.isArray(storeTypes))
+                throw new Error("storeTypes must be an array");
 
             for (const type of storeTypes) {
                 store.set(type, new Map());
@@ -336,13 +289,15 @@ function createPluginRegistry() {
          */
         register(type, items) {
             if (!initialised) throw new Error("Registry is not initialised!");
-            if (!Array.isArray(items)) throw new Error("Invalid items provided for registration");
+            if (!Array.isArray(items))
+                throw new Error("Invalid items provided for registration");
 
             const handler = store.get(type);
             if (!handler) throw new Error(`Unknown type: ${type}`);
 
             for (const item of items) {
-                if (!item.name) throw new Error("Item must have a name property");
+                if (!item.name)
+                    throw new Error("Item must have a name property");
                 handler.set(item.name, item);
             }
         },
@@ -362,38 +317,275 @@ function createPluginRegistry() {
             if (!item) throw new Error(`Unknown item: ${data}`);
 
             return item;
-        }
-    }
-}
-
-function createMemoisedObject() {
-    const cache = new Map();
-    return {
-        memoise(key, factory) {
-            if (!cache.has(key)) {
-                cache.set(key, factory());
-            }
-            return cache.get(key);
         },
-        clear() {
-            cache.clear();
-        }
     };
 }
 
-// Example usage:
-// const memoiser = createMemoisedObject();
-// const obj = memoiser.memoise("myKey", () => {
-//   console.log("Creating object...");
-//   return { foo: "bar" };
-// });
-// console.log(obj); // { foo: "bar" }
+/**
+ * Creates an object pool for managing reusable objects. This
+ * should be used for performance-sensitive applications
+ * where object creation and destruction are costly.
+ *
+ * @param {Function} [factory] - Optional factory function to create new objects
+ * @param {Function} [reset] - Optional function to reset objects before reuse
+ * @returns {Object} An object pool with methods to manage object lifecycle
+ */
+function createObjectPool(
+    factory = () => ({}),
+    reset = (obj) => {
+        // Clear all properties by default
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                delete obj[key];
+            }
+        }
+        return obj;
+    },
+) {
+    const available = [];
+    const inUse = new Set();
+
+    return {
+        /**
+         * Initialize the pool with a specific number of objects
+         * @param {number} amount - Number of objects to pre-create
+         */
+        initialize(amount) {
+            if (amount < 0) throw new Error("Amount must be non-negative");
+
+            for (let i = 0; i < amount; i++) {
+                const obj = factory();
+                available.push(obj);
+            }
+
+            return this;
+        },
+
+        /**
+         * Get an object from the pool or create a new one if none available
+         * @param {boolean} [createIfEmpty=true] - Whether to create a new object if pool is empty
+         * @returns {Object} An object from the pool
+         */
+        get(createIfEmpty = true) {
+            let obj;
+
+            if (available.length > 0) {
+                obj = available.pop();
+            } else if (createIfEmpty) {
+                obj = factory();
+            } else {
+                throw new Error("No objects available in the pool");
+            }
+
+            inUse.add(obj);
+            return obj;
+        },
+
+        /**
+         * Release an object back to the pool
+         * @param {Object} obj - The object to release
+         */
+        release(obj) {
+            if (obj === null || typeof obj !== "object") {
+                throw new TypeError("Only objects can be released");
+            }
+
+            if (!inUse.has(obj)) {
+                throw new Error("Object was not acquired from this pool");
+            }
+
+            inUse.delete(obj);
+            reset(obj);
+            available.push(obj);
+        },
+
+        /**
+         * Clear all objects from the pool
+         */
+        clear() {
+            available.length = 0;
+            inUse.clear();
+        },
+
+        /**
+         * Get information about the pool's current state
+         * @returns {Object} Pool statistics
+         */
+        getStatus() {
+            return {
+                available: available.length,
+                inUse: inUse.size,
+                total: available.length + inUse.size,
+            };
+        },
+
+        /**
+         * Pre-allocate additional objects to the pool
+         * @param {number} amount - Number of objects to add
+         */
+        grow(amount) {
+            return this.initialize(amount);
+        },
+
+        /**
+         * Release all in-use objects back to the pool
+         */
+        releaseAll() {
+            // Convert to array since we'll be modifying the set during iteration
+            [...inUse].forEach((obj) => this.release(obj));
+        },
+    };
+}
+
+/**
+ * @typedef {Object} IDGeneratorInstance
+ * @property {number} nextID - The next ID to be assigned
+ * @property {number[]} reclaimedIDs - Array of IDs that have been released and can be reused
+ */
+function createIDGenerator() {
+    let nextID = 0;
+    let reclaimedIDs = [];
+
+    return {
+        /**
+         * Creates and returns a new unique ID
+         * @returns {number} A unique ID
+         */
+        create() {
+            if (reclaimedIDs.length > 0) {
+                return reclaimedIDs.shift();
+            }
+
+            return nextID++;
+        },
+
+        /**
+         * Releases an ID so it can be reused
+         * @param {number} id - The ID to release
+         * @returns {boolean} True if the ID was successfully released, false otherwise
+         */
+        release(id) {
+            if (id < 0 || id >= nextID || reclaimedIDs.includes(id)) {
+                return false;
+            }
+
+            let insertIndex = 0;
+            while (
+                insertIndex < reclaimedIDs.length &&
+                reclaimedIDs[insertIndex] < id
+            ) {
+                insertIndex++;
+            }
+
+            reclaimedIDs.splice(insertIndex, 0, id);
+            return true;
+        },
+        /**
+         * Checks if an ID is valid and currently in use
+         * @param {number} id - The ID to check
+         * @returns {boolean} True if the ID is valid and in use, false otherwise
+         */
+        isValid(id) {
+            return id >= 0 && id < nextID && !reclaimedIDs.includes(id);
+        },
+        /**
+         * Returns the number of active IDs currently in use
+         * @returns {number} The count of active IDs
+         */
+        getActiveCount() {
+            return nextID - reclaimedIDs.length;
+        },
+        /**
+         * Resets the ID generator to its initial state
+         */
+        reset() {
+            nextID = 0;
+            reclaimedIDs = [];
+        },
+    };
+}
+
+/**
+ * Executes a function a specified number of times.
+ *
+ * @example
+ * const add = (a, b) => a + b;
+ * const addFive = repeat(add, 5);
+ * console.log(addFive(2, 3)); // 5
+ *
+ * @todo Consider memoisation capibilities
+ *
+ * @param {Function} func - The function to be executed
+ * @param {number} times - The number of times to execute the function
+ * @returns {Function} A new function that executes the original function the specified number of times
+ */
+function repeat(func, times) {
+    return function (...args) {
+        let result;
+        for (let i = 0; i < times; i++) result = func(...args);
+        return result;
+    };
+}
+
+/**
+ * An implementation for structs within JavaScript, following SoraJS's architecture.
+ *
+ * @abstract
+ * Structs provide a way to define templates for objects with explicit property definitions
+ * and default values. It also serves the role of providing explicit documentation of intended
+ * object structures within SoraJS's architecture.
+ *
+ * Unlike classes, structs focus purely on data structure without methods or inheritance.
+ * The returned objects are sealed to prevent adding new properties after creation.
+ *
+ * @param {Object} template - The blueprint object containing default property values
+ * @returns {Object} An object with a spawn method for creating instances of the struct
+ *
+ * @example
+ * // Define a User struct
+ * const UserStruct = defineStruct({
+ *   id: '',
+ *   name: '',
+ *   email: '',
+ *   isActive: false,
+ *   createdAt: null
+ * });
+ *
+ * // Create a user instance
+ * const user = UserStruct.spawn({
+ *   id: '123',
+ *   name: 'John Doe',
+ *   email: 'john@example.com',
+ *   isActive: true,
+ *   createdAt: new Date()
+ * });
+ *
+ * todo - Add type checks and validation.
+ */
+function defineStruct(template) {
+    return {
+        /**
+         * Creates an instance of the struct by combining the template with provided values.
+         * The resulting object is sealed to prevent adding new properties.
+         *
+         * @param {Object} values - Values to override defaults from the template
+         * @returns {Object} A sealed object with properties from both template and values
+         */
+        spawn(values) {
+            return Object.seal({
+                ...template,
+                ...values,
+            });
+        },
+    };
+}
 
 export {
     createPrivateState,
-    createPrivateMethods,
     createObservable,
-    createSingleton,
     createPluginRegistry,
-    createMemoisedObject
-}
+    createObjectPool,
+    createIDGenerator,
+    repeat,
+    defineStruct,
+};
