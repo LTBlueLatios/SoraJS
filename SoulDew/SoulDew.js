@@ -1,126 +1,275 @@
-import AltoMare from "./AltoMare";
+import {
+    createPrivateState,
+    defineStruct,
+} from "../Utilities/ObjectFactory.js";
 
-class SoulDew {
-    #listeners = new Map();
-    #states = new Map();
+const Pipeline = defineStruct({
+    name: String,
+    validEvents: Set,
+    handlers: Map,
+    responseHandlers: Map,
+    sleeping: Set,
+});
 
-    #altoMare = new AltoMare();
+const PipelineInterface = defineStruct({
+    name: String,
+    emit: Function,
+    request: Function,
+    on: Function,
+    onRequest: Function,
+    off: Function,
+    offRequest: Function,
+});
+
+/**
+ * @typedef {Object} PipelinesState
+ * @property {function(string, string[]): Object} createPipeline - Create a new pipeline.
+ * @property {function(string): Object} getPipeline - Get a pipeline by name.
+ * @property {function(string): void} removePipeline - Delete a pipeline by name.
+ * @property {function(string): void} removeAllPipelines - Clears all pipelines.
+ */
+
+/**
+ * @type {PipelinesState}
+ */
+const PipelinesState = createPrivateState({ pipelines: new Map() })
+    .addPublicMethods({
+        createPipeline(privateState, name, validEvents) {
+            if (privateState.pipelines.has(name))
+                throw new Error(`Pipeline ${name} already exists`);
+
+            const pipeline = Pipeline.spawn({
+                name: name,
+                validEvents: new Set(validEvents),
+                handlers: new Map(),
+                responseHandlers: new Map(),
+                sleeping: new Set(),
+            });
+            privateState.pipelines.set(name, pipeline);
+
+            return PipelineInterface.spawn({
+                name,
+                emit: SoulDew.emit.bind(SoulDew, name),
+                request: SoulDew.request.bind(SoulDew, name),
+                on: SoulDew.on.bind(SoulDew, name),
+                onRequest: SoulDew.onRequest.bind(SoulDew, name),
+                off: SoulDew.off.bind(SoulDew, name),
+                offRequest: SoulDew.offRequest.bind(SoulDew, name),
+                once: SoulDew.once.bind(SoulDew, name),
+                sleep: SoulDew.sleep.bind(SoulDew, name),
+                wake: SoulDew.wake.bind(SoulDew, name),
+            });
+        },
+        getPipeline(privateState, name) {
+            if (!privateState.pipelines.has(name))
+                throw new Error(`Pipeline ${name} does not exist`);
+            return privateState.pipelines.get(name);
+        },
+        removePipeline(privateState, name) {
+            privateState.pipelines.delete(name);
+        },
+        removeAllPipelines(privateState) {
+            privateState.pipelines.clear();
+        },
+    })
+    .build();
+
+const SOULDEW_STATE = Object.seal({
+    pipelines: PipelinesState,
+});
+
+/**
+ * SoulDew event pipeline system. A highly efficient event system that uses
+ * the philsophical concept of "pipelines", aka groups of events that can be
+ * emitted and listened to. The pipelines concept is created to facilitate
+ * controlled, explicit communication between different parts of the system.
+ * The usage of pipelines provides an effective solution for modular event emitting
+ * and to preventing event spaghettification. Several utilities are provided
+ * for your convenience.
+ *
+ * @namespace
+ */
+const SoulDew = Object.freeze({
+    createPipeline: SOULDEW_STATE.pipelines.createPipeline,
+    getPipeline: SOULDEW_STATE.pipelines.getPipeline,
+    removePipeline: SOULDEW_STATE.pipelines.removePipeline,
+    removeAllPipelines: SOULDEW_STATE.pipelines.removeAllPipelines,
 
     /**
-     * Adds an event listener.
-     * @param {string} event - The name of the event to listen for.
-     * @param {function} listener - The callback function to execute when the event is emitted.
-     * @param {boolean} [once=false] - If true, the listener will be automatically removed after being invoked once.
-     * @throws {TypeError} If event is not a string or listener is not a function.
+     * Emits an event on a specific pipeline
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {string} eventName - Name of the event to emit
+     * @param {...any} data - Data to pass to event handlers
+     * @throws {Error} If event is not registered for the pipeline
      */
-    on(event, listener, once = false) {
-        this.#altoMare.checkParams(arguments, ["string", "function"]);
-        const eventObj = { listener, once };
+    emit(pipelineName, eventName, ...data) {
+        const pipeline = this.getPipeline(pipelineName);
+        if (!pipeline.validEvents.has(eventName))
+            throw new Error(
+                `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
+            );
 
-        if (!this.#listeners.has(event)) this.#listeners.set(event, []);
-        this.#listeners.get(event).push(eventObj);
-    }
+        const handlers = pipeline.handlers.get(eventName);
+        if (handlers) {
+            // I'd love to make this a struct, but it absolutely kills performance.
+            const eventObject = {
+                cancelled: false,
+                cancel() {
+                    this.cancelled = true;
+                    console.log("Event cancelled");
+                },
+            };
 
-    /**
-     * Removes an event listener.
-     * @param {string} event - The name of the event to remove the listener from.
-     * @param {function} listener - The callback function to remove.
-     * @throws {TypeError} If event is not a string or listener is not a function.
-     */
-    off(event, listener) {
-        this.#altoMare.checkParams(arguments, ["string", "function"]);
-
-        if (this.#listeners.has(event)) {
-            const listeners = this.#listeners.get(event);
-            const index = listeners.findIndex((obj) => obj.listener === listener);
-            if (index !== -1) {
-                listeners.splice(index, 1);
-                if (listeners.length === 0) {
-                    this.#listeners.delete(event);
+            for (const handler of handlers) {
+                if (pipeline.sleeping.has(handler)) continue;
+                if (eventObject.cancelled) break;
+                try {
+                    handler(eventObject, data);
+                } catch (error) {
+                    console.error(
+                        `Error in handler for event ${eventName} in pipeline ${pipeline.name}:`,
+                        error,
+                    );
                 }
             }
         }
-    }
+    },
 
     /**
-     * Emits an event using CustomEvent.
-     * @param {string} event - The name of the event to emit.
-     * @param {*} [detail] - A value to be passed to the event listener.
-     * @throws {TypeError} If event is not a string.
+     * Sends a request to a pipeline and returns the first non-undefined response
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {string} eventName - Name of the event to request
+     * @param {...any} data - Data to pass to response handlers
+     * @returns {any} The first non-undefined response or null if none
      */
-    emit(event, detail) {
-        this.#altoMare.checkParams(arguments, ["string", "any"]);
-        const customEvent = new CustomEvent(event, { detail });
-
-        if (this.#listeners.has(event)) {
-            const listeners = this.#listeners.get(event);
-            for (let i = 0; i < listeners.length; i+= 1) {
-                const { listener, once } = listeners[i];
-
-                listener(customEvent);
-                if (once) {
-                    listeners.splice(i, 1);
-                    i-= 1;
-                }
+    request(pipelineName, eventName, ...data) {
+        const pipeline = this.getPipeline(pipelineName);
+        const responseHandlers = pipeline.responseHandlers.get(eventName);
+        if (responseHandlers) {
+            for (const handler of responseHandlers) {
+                const response = handler(data);
+                if (response !== undefined) return response;
             }
         }
-
-        document.dispatchEvent(customEvent);
-    }
-
-    /**
-     * Links a state object to the state manager.
-     * @param {string} stateName - A unique name for the state.
-     * @param {Object} state - The state object to observe.
-     * @throws {TypeError} If stateName is not a string, object, or null.
-     */
-    observeState(stateName, state) {
-        this.#altoMare.checkParams(arguments, ["string", "object"]);
-        this.#states.set(stateName, state);
-    }
+        return null;
+    },
 
     /**
-     * Sets new values to properties in the observed state.
-     * Optionally emits a 'stateChange' event for the changed properties.
-     * @param {string} stateName - The name of the state to update.
-     * @param {Object} newState - An object with new state values to set directly onto the existing state.
-     * @param {boolean} [emitEvent=true] - Whether to emit a 'stateChange' event.
-     * @throws {Error} If the state does not exist.
+     * Registers an event handler for a specific pipeline and event
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {string} eventName - Name of the event to listen for
+     * @param {Function} handler - Handler function to call when event is emitted
+     * @throws {Error} If event is not registered for the pipeline
      */
-    setState(stateName, newState, emitEvent = true) {
-        this.#altoMare.checkParams(arguments, ["string", "object", "boolean"]);
+    on(pipelineName, eventName, handler) {
+        const pipeline = this.getPipeline(pipelineName);
+        if (!pipeline.validEvents.has(eventName))
+            throw new Error(
+                `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
+            );
 
-        const currentState = this.#states.get(stateName);
-        if (!currentState) throw new Error(`State "${stateName}" not found`);
+        if (!pipeline.handlers.has(eventName)) {
+            pipeline.handlers.set(eventName, new Set());
+        }
 
-        for (const key in newState) {
-            if (Object.hasOwn(newState, key)) {
-                currentState[key] = newState[key];
-                if (emitEvent) {
-                    this.emit(`stateChange:${stateName}`, {
-                        value: newState[key],
-                    });
-                }
+        const handlers = pipeline.handlers.get(eventName);
+        handlers?.add(handler);
+    },
+
+    /**
+     * Registers a request handler for a specific pipeline and event
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {string} eventName - Name of the event to handle requests for
+     * @param {Function} handler - Handler function to call when request is made
+     * @throws {Error} If event is not registered for the pipeline
+     */
+    onRequest(pipelineName, eventName, handler) {
+        const pipeline = this.getPipeline(pipelineName);
+        if (!pipeline.validEvents.has(eventName))
+            throw new Error(
+                `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
+            );
+
+        if (!pipeline.responseHandlers.has(eventName)) {
+            pipeline.responseHandlers.set(eventName, new Set());
+        }
+
+        const handlers = pipeline.responseHandlers.get(eventName);
+        handlers?.add(handler);
+    },
+
+    /**
+     * Removes an event handler from a specific pipeline and event
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {string} eventName - Name of the event
+     * @param {Function} handler - Handler function to remove
+     */
+    off(pipelineName, eventName, handler) {
+        const pipeline = this.getPipeline(pipelineName);
+
+        const handlers = pipeline.handlers.get(eventName);
+        if (handlers) {
+            handlers.delete(handler);
+            if (handlers.size === 0) {
+                pipeline.handlers.delete(eventName);
             }
         }
-    }
+    },
 
     /**
-     * Gets the state object by its name.
-     * @param {string} stateName - The name of the state to retrieve.
-     * @returns {Object} The state object.
+     * Removes a request handler from a specific pipeline and event
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {string} eventName - Name of the event
+     * @param {Function} handler - Handler function to remove
      */
-    getState(stateName) {
-        return this.#states.get(stateName);
-    }
+    offRequest(pipelineName, eventName, handler) {
+        const pipeline = this.getPipeline(pipelineName);
+
+        const handlers = pipeline.responseHandlers.get(eventName);
+        if (handlers) {
+            handlers.delete(handler);
+            if (handlers.size === 0) {
+                pipeline.responseHandlers.delete(eventName);
+            }
+        }
+    },
 
     /**
-     * Removes a state from observation.
-     * @param {string} stateName - The name of the state to remove.
+     * Puts a listener to sleep (temporarily disables it)
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {Function} listen - Listener function to put to sleep
+     * @returns {Function} Function to wake the listener
      */
-    removeState(stateName) {
-        this.#states.delete(stateName);
-    }
-}
+    sleep(pipelineName, listen) {
+        const pipeline = this.getPipeline(pipelineName);
+        pipeline.sleeping.add(listen);
+        return () => this.wake(pipelineName, listen);
+    },
+
+    /**
+     * Wakes a sleeping listener
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {Function} listen - Listener function to wake
+     */
+    wake(pipelineName, listen) {
+        const pipeline = this.getPipeline(pipelineName);
+        pipeline.sleeping.delete(listen);
+    },
+
+    /**
+     * Registers a one-time event handler for a specific pipeline and event
+     * @param {string} pipelineName - Name of the pipeline
+     * @param {string} eventName - Name of the event to listen for once
+     * @param {Function} handler - Handler function to call when event is emitted
+     */
+    once(pipelineName, eventName, handler) {
+        const listen = (data) => {
+            handler(data);
+            this.off(pipelineName, eventName, listen);
+        };
+
+        this.on(pipelineName, eventName, listen);
+    },
+});
 
 export default SoulDew;

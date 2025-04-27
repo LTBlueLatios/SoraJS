@@ -1,3 +1,9 @@
+# Custom
+/sandbox
+/in-dev
+.vscode
+.DS_Store
+
 # Logs
 logs
 *.log
