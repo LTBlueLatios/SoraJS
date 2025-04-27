@@ -10,7 +10,7 @@ const PRIMITIVE_TYPE_CONSTANTS = {
     STRING: "string",
     OBJECT: "object",
     FUNCTION: "function",
-    ARRAY: "Array",
+    ARRAY: "array",
     NUMBER: "number",
     BOOLEAN: "boolean",
     SYMBOL: "symbol",
