@@ -1,6 +1,6 @@
 const OPFSState = Object.seal({
     initialised: false,
-    rootDir: null
+    rootDir: null,
 });
 
 const OPFSWrapper = Object.freeze({
@@ -24,17 +24,20 @@ const OPFSWrapper = Object.freeze({
             return OPFSState.rootDir;
         }
 
-        const segments = path.split("/").filter(segment => segment !== "");
+        const segments = path.split("/").filter((segment) => segment !== "");
         let currentDir = OPFSState.rootDir;
 
         for (const segment of segments) {
             try {
                 // @ts-ignore
                 currentDir = await currentDir.getDirectoryHandle(segment, {
-                    create: true
+                    create: true,
                 });
             } catch (error) {
-                console.error(`Failed to access/create directory "${segment}":`, error);
+                console.error(
+                    `Failed to access/create directory "${segment}":`,
+                    error,
+                );
                 throw error;
             }
         }
@@ -43,33 +46,32 @@ const OPFSWrapper = Object.freeze({
     },
 
     parsePath(filePath) {
-        const normalizedPath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
+        const normalizedPath = filePath.startsWith("/")
+            ? filePath.slice(1)
+            : filePath;
         const lastSlashIndex = normalizedPath.lastIndexOf("/");
 
         if (lastSlashIndex === -1) {
             return {
                 dirPath: "",
-                fileName: normalizedPath
+                fileName: normalizedPath,
             };
         }
 
         return {
             dirPath: normalizedPath.substring(0, lastSlashIndex),
-            fileName: normalizedPath.substring(lastSlashIndex + 1)
+            fileName: normalizedPath.substring(lastSlashIndex + 1),
         };
     },
 
     async setFile(filePath, contents) {
         try {
-            const {
-                dirPath,
-                fileName
-            } = this.parsePath(filePath);
+            const { dirPath, fileName } = this.parsePath(filePath);
             const directory = await this.ensureDirectory(dirPath);
 
             // @ts-ignore
             const fileHandle = await directory.getFileHandle(fileName, {
-                create: true
+                create: true,
             });
             const writable = await fileHandle.createWritable();
 
@@ -83,17 +85,14 @@ const OPFSWrapper = Object.freeze({
 
     async updateContents(filePath, contents) {
         try {
-            const {
-                dirPath,
-                fileName
-            } = this.parsePath(filePath);
+            const { dirPath, fileName } = this.parsePath(filePath);
             const directory = await this.ensureDirectory(dirPath);
 
             try {
                 // @ts-ignore
                 const fileHandle = await directory.getFileHandle(fileName);
                 const writable = await fileHandle.createWritable({
-                    keepExistingData: false
+                    keepExistingData: false,
                 });
 
                 await writable.write(contents);
@@ -113,15 +112,13 @@ const OPFSWrapper = Object.freeze({
 
     async getFile(filePath) {
         try {
-            const {
-                dirPath,
-                fileName
-            } = this.parsePath(filePath);
+            const { dirPath, fileName } = this.parsePath(filePath);
             const directory = await this.ensureDirectory(dirPath);
 
             // @ts-ignore
             const fileHandle = await directory.getFileHandle(fileName);
-            return await fileHandle.getFile();
+            const file = await fileHandle.getFile();
+            return file;
         } catch (error) {
             console.error(`Failed to get file "${filePath}":`, error);
             throw error;
@@ -131,11 +128,14 @@ const OPFSWrapper = Object.freeze({
     async readFile(filePath, format = "text") {
         const file = await this.getFile(filePath);
 
+        let result;
         switch (format.toLowerCase()) {
             case "text":
-                return await file.text();
+                result = await file.text();
+                return result;
             case "arraybuffer":
-                return await file.arrayBuffer();
+                result = await file.arrayBuffer();
+                return result;
             case "blob":
                 return file;
             case "dataurl":
@@ -152,10 +152,7 @@ const OPFSWrapper = Object.freeze({
 
     async deleteFile(filePath) {
         try {
-            const {
-                dirPath,
-                fileName
-            } = this.parsePath(filePath);
+            const { dirPath, fileName } = this.parsePath(filePath);
             const directory = await this.ensureDirectory(dirPath);
 
             // @ts-ignore
@@ -176,13 +173,16 @@ const OPFSWrapper = Object.freeze({
                 const type = entry.kind;
                 entries.push({
                     name,
-                    type
+                    type,
                 });
             }
 
             return entries;
         } catch (error) {
-            console.error(`Failed to list files in directory "${dirPath}":`, error);
+            console.error(
+                `Failed to list files in directory "${dirPath}":`,
+                error,
+            );
             throw error;
         }
     },
@@ -196,7 +196,7 @@ const OPFSWrapper = Object.freeze({
             for (const entry of entries) {
                 // @ts-ignore
                 await OPFSState.rootDir.removeEntry(entry.name, {
-                    recursive: true
+                    recursive: true,
                 });
             }
         } catch (error) {
@@ -206,8 +206,9 @@ const OPFSWrapper = Object.freeze({
     },
 
     async getStorageQuota() {
-        return await navigator.storage.estimate();
-    }
+        const result = await navigator.storage.estimate();
+        return result;
+    },
 });
 
 export default OPFSWrapper;
