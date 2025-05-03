@@ -1,8 +1,10 @@
 /**
- * @fileoverview Provides several factory (higher-order) functions to accomplish different tasks.
+ * @fileoverview Provides several factory functions to accomplish different tasks.
  * @author BlueLatios
  * @version 1.0.0
  */
+
+import { DeepSeal } from "./UtilityHelpers.js";
 
 /**
  * @typedef {Object} PrivateObjectBuilder
@@ -12,7 +14,7 @@
  * @property {function(string, GetterCallback): PrivateObjectBuilder} addGetter - Adds a getter for a private property
  * @property {function(string, SetterCallback): PrivateObjectBuilder} addSetter - Adds a setter for a private property
  * @property {function(string, GetterCallback, SetterCallback): PrivateObjectBuilder} addAccessor - Adds both getter and setter
- * @property {function(): Object} build - Finalizes and returns the proxied object
+ * @property {function(): Object} build - Finalizes and returns the sealed object
  */
 
 /**
@@ -41,7 +43,7 @@
  * This factory function provides a builder pattern for creating objects with
  * encapsulated private state that cannot be accessed from outside the object.
  * Unlike class-based privacy mechanisms, this approach offers genuine encapsulation
- * through JavaScript closures without the performance overhead of proxies.
+ * through JavaScript closures.
  * Compliant with SoraJS architecture.
  *
  * @template T
@@ -128,8 +130,22 @@ function createPrivateState(initialState = {}) {
             return this;
         },
 
+        /**
+         * Adds multiple public methods at once.
+         *
+         * @param {Object} functions - An object containing method names as keys and implementations as values
+         * @returns {PrivateObjectBuilder} The builder instance for chaining
+         *
+         * @example
+         * .addPublicMethods({
+         *   getUserData: (privateState, format) => {
+         *     const data = { email: privateState.email, name: privateState.name };
+         *     return format === 'json' ? JSON.stringify(data) : data;
+         *   },
+         *   getFullName: (privateState) => `${privateState.firstName} ${privateState.lastName}`
+         * })
+         */
         addPublicMethods(functions) {
-            // Should handle an object literal with methods
             Object.entries(functions).forEach(([key, fn]) => {
                 this.addPublicMethod(key, fn);
             });
@@ -219,7 +235,60 @@ function createPrivateState(initialState = {}) {
          * @returns {Object} The constructed object with private state encapsulation
          */
         build() {
-            return Object.seal(publicInterface);
+            return DeepSeal(publicInterface);
+        },
+    };
+}
+
+/**
+ * @typedef EmitterObject
+ * @property {function(string, Function): void} on - Registers a callback for a specific event type
+ * @property {function(string, any): void} emit - Emits an event with optional data
+ * @property {function(string, Function): void} off - Removes a callback for a specific event type
+ */
+
+/**
+ * Creates an event emitter object. The returned object is the fastest possible
+ * event emitter implementation for JavaScript.
+ *
+ * @returns {EmitterObject} An event emitter object with on, emit, and off methods
+ */
+function createEmitter() {
+    const events = new Map();
+
+    return {
+        /**
+         * Registers a callback for a specific event type
+         * @param {string} eventType - The type of event to listen for
+         * @param {Function} callback - The callback function to be called when the event is emitted
+         */
+        on(eventType, callback) {
+            if (!events.has(eventType)) events.set(eventType, new Set());
+            events.get(eventType).add(callback);
+        },
+        /**
+         * Emits an event with the given data
+         * @param {string} eventType - The type of event to emit
+         * @param {any} data - The data to be passed to the event listeners
+         */
+        emit(eventType, data) {
+            const listeners = events.get(eventType);
+            if (!listeners) return;
+            // Optimisation Lesson!
+            // Direct for loops are the fastest way to iterate
+            // over a Set. `Array.forEach` has slightly more overhead.
+            for (const listener of listeners) listener(data);
+        },
+        /**
+         * Removes a callback for a specific event type
+         * @param {string} eventType - The type of event to stop listening for
+         * @param {Function} callback - The callback function to be removed
+         */
+        off(eventType, callback) {
+            const listeners = events.get(eventType);
+            if (!listeners) return;
+            listeners.delete(callback);
+            if (listeners.size === 0) events.delete(eventType);
         },
     };
 }
@@ -247,12 +316,6 @@ function createObservable(initialState = {}) {
     };
 }
 
-// I'm cooking something to make this more generic
-// Just wait ;3
-// This object currently handles the registration of plugins
-// and provides a way to retrieve them.
-// I'm thinking of making it a bit more generic so it can be used
-// for other purposes as well.
 /**
  * @typedef {Object} PluginRegistry
  * @property {function(Array): PluginRegistry} build - Builds the registry with the specified store types
@@ -267,7 +330,6 @@ function createPluginRegistry() {
         /**
          * Builds the registry with the specified store types.
          * @param {Array} storeTypes - The types of items to store
-         * @returns {PluginRegistry}
          */
         build(storeTypes) {
             if (!Array.isArray(storeTypes))
@@ -279,8 +341,6 @@ function createPluginRegistry() {
 
             Object.seal(store);
             initialised = true;
-
-            return this;
         },
         /**
          * Registers a list of items to the registry.
@@ -506,28 +566,6 @@ function createIDGenerator() {
 }
 
 /**
- * Executes a function a specified number of times.
- *
- * @example
- * const add = (a, b) => a + b;
- * const addFive = repeat(add, 5);
- * console.log(addFive(2, 3)); // 5
- *
- * @todo Consider memoisation capibilities
- *
- * @param {Function} func - The function to be executed
- * @param {number} times - The number of times to execute the function
- * @returns {Function} A new function that executes the original function the specified number of times
- */
-function repeat(func, times) {
-    return function (...args) {
-        let result;
-        for (let i = 0; i < times; i++) result = func(...args);
-        return result;
-    };
-}
-
-/**
  * An implementation for structs within JavaScript, following SoraJS's architecture.
  *
  * @abstract
@@ -543,7 +581,7 @@ function repeat(func, times) {
  *
  * @example
  * // Define a User struct
- * const UserStruct = defineStruct({
+ * const UserStruct = createStruct({
  *   id: '',
  *   name: '',
  *   email: '',
@@ -562,7 +600,7 @@ function repeat(func, times) {
  *
  * todo - Add type checks and validation.
  */
-function defineStruct(template) {
+function createStruct(template) {
     return {
         /**
          * Creates an instance of the struct by combining the template with provided values.
@@ -572,7 +610,7 @@ function defineStruct(template) {
          * @returns {Object} A sealed object with properties from both template and values
          */
         spawn(values) {
-            return Object.seal({
+            return DeepSeal({
                 ...template,
                 ...values,
             });
@@ -580,12 +618,121 @@ function defineStruct(template) {
     };
 }
 
+/**
+ * Creates a priority queue data structure using a heap.
+ *
+ * @returns {Object} An object with methods to define priorities, add tasks, and get the next task.
+ */
+function createPriorityQueue(priorities = {}) {
+    const heap = [];
+    let priorityMap = priorities;
+
+    return {
+        addTask(task) {
+            heap.push(task);
+            this.bubbleUp(heap.length - 1);
+        },
+
+        getNextTask() {
+            if (heap.length === 0) return null;
+
+            const task = heap[0];
+            heap[0] = heap[heap.length - 1];
+            heap.pop();
+
+            if (heap.length > 0) this.sinkDown(0);
+            return task;
+        },
+
+        getAllTasks() {
+            return [...heap];
+        },
+
+        clearAllTasks() {
+            heap.length = 0;
+        },
+
+        // This is debug code, remove!
+        getHeap() {
+            return heap;
+        },
+
+        getParentIndex(i) {
+            return Math.floor((i - 1) / 2);
+        },
+
+        getLeftChildIndex(i) {
+            return 2 * i + 1;
+        },
+
+        getRightChildIndex(i) {
+            return 2 * i + 2;
+        },
+
+        hasParent(i) {
+            return this.getParentIndex(i) >= 0;
+        },
+
+        hasLeftChild(i) {
+            return this.getLeftChildIndex(i) < heap.length;
+        },
+
+        hasRightChild(i) {
+            return this.getRightChildIndex(i) < heap.length;
+        },
+
+        swap(i, j) {
+            [heap[i], heap[j]] = [heap[j], heap[i]];
+        },
+
+        bubbleUp(i) {
+            while (
+                this.hasParent(i) &&
+                priorityMap[heap[i].priority] >
+                    priorityMap[heap[this.getParentIndex(i)].priority]
+            ) {
+                const parentIndex = this.getParentIndex(i);
+                this.swap(i, parentIndex);
+                i = parentIndex;
+            }
+        },
+
+        sinkDown(i) {
+            let maxIndex = i;
+
+            while (true) {
+                if (
+                    this.hasLeftChild(i) &&
+                    priorityMap[heap[this.getLeftChildIndex(i)].priority] >
+                        priorityMap[heap[maxIndex].priority]
+                ) {
+                    maxIndex = this.getLeftChildIndex(i);
+                }
+
+                if (
+                    this.hasRightChild(i) &&
+                    priorityMap[heap[this.getRightChildIndex(i)].priority] >
+                        priorityMap[heap[maxIndex].priority]
+                ) {
+                    maxIndex = this.getRightChildIndex(i);
+                }
+
+                if (maxIndex === i) break;
+
+                this.swap(i, maxIndex);
+                i = maxIndex;
+            }
+        },
+    };
+}
+
 export {
     createPrivateState,
+    createEmitter,
     createObservable,
     createPluginRegistry,
     createObjectPool,
     createIDGenerator,
-    repeat,
-    defineStruct,
+    createStruct,
+    createPriorityQueue,
 };

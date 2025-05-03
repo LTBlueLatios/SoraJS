@@ -20,6 +20,7 @@ export default [
             "@functional": functional,
         },
         rules: {
+            "no-var": "error",
             "@stylistic/quotes": ["error", "double"],
             "@stylistic/indent": ["error", 4],
             "@stylistic/comma-spacing": [
@@ -60,6 +61,19 @@ export default [
              */
             "@stylistic/quote-props": ["error", "as-needed"],
             "@stylistic/rest-spread-spacing": ["error", "never"],
+            "@stylistic/semi": ["error", "always"],
+            "@stylistic/semi-spacing": "error",
+            "@stylistic/semi-style": ["error", "last"],
+            "@stylistic/space-before-blocks": ["error", "always"],
+            "@stylistic/space-in-parens": ["error", "never"],
+            "@stylistic/space-infix-ops": "error",
+            "@stylistic/space-unary-ops": "error",
+            "@stylistic/spaced-comment": ["error", "always"],
+            "@stylistic/switch-colon-spacing": "error",
+            "@stylistic/template-curly-spacing": "error",
+            "@stylistic/template-tag-spacing": "error",
+            "@stylistic/yield-star-spacing": ["error", "after"],
+            "@stylistic/wrap-regex": "error",
 
             "@functional/no-classes": "error",
         },

@@ -22,4 +22,6 @@ export function benchmark() {
         throughput !== undefined && throughput >= 20000000,
         `SoulDew's throughput is ${throughput}. Expected throughput is 20000000`,
     );
+
+    console.log(bench.table());
 }
