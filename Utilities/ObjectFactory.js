@@ -14,7 +14,7 @@
 
 /**
  * @class
- * @classdesc Creates an event emitter isntance that is the fastest possible
+ * @classdesc Creates an event emitter instance that is the fastest possible
  * event emitter implementation for JavaScript.
  */
 class EventEmitter {
@@ -510,18 +510,15 @@ class PriorityQueue {
     processQueue(processor, options = {}) {
         const results = [];
         let count = 0;
-
         const limit = options.limit ?? Infinity;
         const preserveItems = options.preserveItems ?? false;
 
         if (preserveItems) {
             for (let i = 0; i < this.#heap.length && count < limit; i++) {
                 const result = processor(this.#heap[i]);
-                if (result !== undefined) {
-                    results.push(result);
-                }
+                results.push(result);
+                count++;
             }
-            count++;
         } else {
             while (!this.isEmpty() && count < limit) {
                 const item = this.dequeue();
@@ -616,7 +613,8 @@ class PriorityQueue {
         const length = this.#heap.length;
         let element = index;
 
-        while (true) {
+        let hasSwapped = true;
+        while (hasSwapped) {
             let leftChild = 2 * element + 1;
             let rightChild = 2 * element + 2;
             let smallest = element;
@@ -636,13 +634,15 @@ class PriorityQueue {
                 smallest = rightChild;
             }
 
-            if (smallest === element) break;
+            hasSwapped = smallest !== element;
 
-            [this.#heap[element], this.#heap[smallest]] = [
-                this.#heap[smallest],
-                this.#heap[element],
-            ];
-            element = smallest;
+            if (hasSwapped) {
+                [this.#heap[element], this.#heap[smallest]] = [
+                    this.#heap[smallest],
+                    this.#heap[element],
+                ];
+                element = smallest;
+            }
         }
     }
 }
