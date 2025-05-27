@@ -182,7 +182,7 @@ function minMax(data) {
 
     return {
         min,
-        max
+        max,
     };
 }
 
@@ -236,7 +236,7 @@ function getSkewness(data) {
         sum += Math.pow(deviation, 3);
     }
 
-    return n * sum / ((n - 1) * (n - 2));
+    return (n * sum) / ((n - 1) * (n - 2));
 }
 
 /**
@@ -268,7 +268,7 @@ function getKurtosis(data) {
     const b = (n - 1) * (n - 2) * (n - 3);
     const c = 3 * Math.pow(n - 1, 2);
 
-    return (a / b) - (c / ((n - 2) * (n - 3)));
+    return a / b - c / ((n - 2) * (n - 3));
 }
 
 /**
@@ -296,7 +296,10 @@ function getPercentile(data, percentile) {
         const upper = Math.ceil(index);
         const weight = index - lower;
 
-        return (1 - weight) * Number(sortedData[lower]) + weight * Number(sortedData[upper]);
+        return (
+            (1 - weight) * Number(sortedData[lower]) +
+            weight * Number(sortedData[upper])
+        );
     }
 }
 
@@ -346,16 +349,15 @@ function getFrequencyDistribution(data, bins = 0) {
     const distribution = new Array(bins).fill(0).map((_, i) => ({
         bin: min + i * binWidth + binWidth / 2,
         count: 0,
-        frequency: 0
+        frequency: 0,
     }));
 
     // Count values in each bin
     for (let i = 0; i < data.length; i++) {
         const value = Number(data[i]);
         // Handle edge case for the maximum value
-        const binIndex = value === max
-            ? bins - 1
-            : Math.floor((value - min) / binWidth);
+        const binIndex =
+            value === max ? bins - 1 : Math.floor((value - min) / binWidth);
         distribution[binIndex].count++;
     }
 
@@ -508,8 +510,10 @@ function getCovariance(dataX, dataY, isSample = true) {
     const length = dataX.length;
 
     for (let i = 0; i < length; i++) {
-        const valueX = typeof dataX[i] === "number" ? dataX[i] : Number(dataX[i]);
-        const valueY = typeof dataY[i] === "number" ? dataY[i] : Number(dataY[i]);
+        const valueX =
+            typeof dataX[i] === "number" ? dataX[i] : Number(dataX[i]);
+        const valueY =
+            typeof dataY[i] === "number" ? dataY[i] : Number(dataY[i]);
         covariance += (valueX - meanX) * (valueY - meanY);
     }
 
@@ -558,5 +562,5 @@ export {
     getMedian,
     getCovariance,
     getPearsonCorrelation,
-    isWithinRange
-}
+    isWithinRange,
+};

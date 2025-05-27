@@ -47,7 +47,7 @@ export default [
             "@stylistic/no-whitespace-before-property": "error",
             // "@stylistic/nonblock-statement-body-position": ["error", "beside"],
             "@stylistic/object-curly-spacing": ["error", "always"],
-            "@stylistic/object-property-newline": "error",
+            // "@stylistic/object-property-newline": "error",
             "@stylistic/padded-blocks": ["error", "never"],
             /**
              * "@stylistic/padding-line-between-statements": [
@@ -75,7 +75,12 @@ export default [
             "@stylistic/yield-star-spacing": ["error", "after"],
             "@stylistic/wrap-regex": "error",
 
-            "@functional/no-classes": "error",
+            /**
+             * Classes are now being reintroduced to the SoraJS architecture,
+             * to serve their intended purposes as blueprints. Inheritence
+             * and polymorphism are still banned.
+             */
+            // "@functional/no-classes": "error",
         },
     },
 ];

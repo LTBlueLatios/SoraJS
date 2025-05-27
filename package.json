@@ -1,6 +1,6 @@
 {
     "name": "@ltbluelatios/sorajs",
-    "version": "1.0.4",
+    "version": "0.0.1",
     "description": "A library of highly specialised and systemically designed modules made to be solution-agnostic.",
     "main": "Sora.js",
     "type": "module",
@@ -24,7 +24,15 @@
         "acorn": "^8.14.1",
         "acorn-walk": "^8.3.4",
         "astring": "^1.9.0",
+        "chalk": "^5.4.1",
         "chevrotain": "^11.0.3",
         "tinybench": "^4.0.1"
-    }
+    },
+    "files": [
+        "README.md",
+        "LICENSE",
+        "Sora.js",
+        "SoulDew/**",
+        "Utilities/**"
+    ]
 }

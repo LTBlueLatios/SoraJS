@@ -1,9 +1,0 @@
-# Exclude everything
-*
-
-# But include these folders
-!README.md
-!LICENSE
-!Sora.js
-!SoulDew/
-!Utilities

@@ -1,568 +1,377 @@
 /**
- * @fileoverview Provides several factory functions to accomplish different tasks.
+ * @fileoverview Provides blueprint classes for creating specialized utility objects.
+ * Each class serves as a factory for generating instances with encapsulated
+ * functionality. This file is a prime example for how classes are intended to be used,
+ * especially within the SoraJS architecture. Inheritence and polymorphism of classes are banned,
+ * interfaces and composition are used to replace inheritence and provide a more developer friendly and extensible way to define behavior.
+ *
+ * SoraJS's architecture intends to be explicit, inheritence and polymorphism is not. Classes
+ * serve as blueprints, not to create singletons or to form a complex inheritence model.
+ *
  * @author BlueLatios
- * @version 1.0.0
- */
-
-import { DeepSeal } from "./UtilityHelpers.js";
-
-/**
- * @typedef {Object} PrivateObjectBuilder
- * @property {function(string, *): PrivateObjectBuilder} addPrivateProperty - Adds a private property to the object
- * @property {function(string, *): PrivateObjectBuilder} addPublicProperty - Adds a public property to the object
- * @property {function(string, PrivateMethodCallback): PrivateObjectBuilder} addPublicMethod - Adds a method with access to private state
- * @property {function(string, GetterCallback): PrivateObjectBuilder} addGetter - Adds a getter for a private property
- * @property {function(string, SetterCallback): PrivateObjectBuilder} addSetter - Adds a setter for a private property
- * @property {function(string, GetterCallback, SetterCallback): PrivateObjectBuilder} addAccessor - Adds both getter and setter
- * @property {function(): Object} build - Finalizes and returns the sealed object
+ * @version 2.0.0
  */
 
 /**
- * @callback PrivateMethodCallback
- * @param {Object} privateState - The encapsulated private state
- * @param {...*} args - Additional arguments passed to the method
- * @returns {*} The result of the method execution
+ * @class
+ * @classdesc Creates an event emitter isntance that is the fastest possible
+ * event emitter implementation for JavaScript.
  */
+class EventEmitter {
+    #events = new Map();
+
+    /**
+     * Registers a callback for a specific event type
+     * @param {string} eventType - The type of event to listen for
+     * @param {Function} callback - The callback function to be called when the event is emitted
+     */
+    on(eventType, callback) {
+        const listeners = this.#events.get(eventType);
+        if (!listeners) {
+            this.#events.set(eventType, new Set([callback]));
+        } else {
+            listeners.add(callback);
+        }
+    }
+
+    /**
+     * Emits an event with the given data
+     * @param {string} eventType - The type of event to emit
+     * @param {any} data - The data to be passed to the event listeners
+     */
+    emit(eventType, data) {
+        const listeners = this.#events.get(eventType);
+        if (!listeners) return;
+        for (const listener of listeners) listener(data);
+    }
+
+    /**
+     * Removes a callback for a specific event type
+     * @param {string} eventType - The type of event to stop listening for
+     * @param {Function} callback - The callback function to be removed
+     */
+    off(eventType, callback) {
+        const listeners = this.#events.get(eventType);
+        if (!listeners) return;
+        listeners.delete(callback);
+        if (listeners.size === 0) this.#events.delete(eventType);
+    }
+}
 
 /**
- * @callback GetterCallback
- * @param {Object} privateState - The encapsulated private state
- * @returns {*} The value to be returned by the getter
- */
-
-/**
- * @callback SetterCallback
- * @param {Object} privateState - The encapsulated private state
- * @param {*} value - The value being set
- * @returns {void}
- */
-
-/**
- * Creates an object with truly private state using closures.
- *
- * This factory function provides a builder pattern for creating objects with
- * encapsulated private state that cannot be accessed from outside the object.
- * Unlike class-based privacy mechanisms, this approach offers genuine encapsulation
- * through JavaScript closures.
- * Compliant with SoraJS architecture.
- *
- * @template T
- * @param {Record<string, any>} [initialState={}]
- * @returns {Object} Builder with methods to create encapsulated objects
+ * @class Observable
+ * @classdesc A class that provides simple state management.
  *
  * @example
- * // Create a user object with private API key
- * const user = createPrivateState()
- *   .addPrivateProperty('apiKey', 'secret-key-123')
- *   .addPrivateProperty('email', 'user@example.com')
- *   .addPublicProperty('username', 'johndoe')
- *   .addPublicMethod('makeApiCall', (privateState, endpoint) => {
- *     return `Calling ${endpoint} with key ${privateState.apiKey}`;
- *   })
- *   .addGetter('email', (privateState) => privateState.email)
- *   .addSetter('email', (privateState, value) => {
- *     if (!value.includes('@')) throw new Error('Invalid email');
- *     privateState.email = value;
- *   })
- *   .addAccessor('role',
- *     (privateState) => privateState.role || 'user',
- *     (privateState, value) => {
- *       const allowedRoles = ['user', 'admin', 'guest'];
- *       if (!allowedRoles.includes(value)) throw new Error('Invalid role');
- *       privateState.role = value;
- *     }
- *   )
- *   .build();
- *
- * // The object's private state cannot be accessed:
- * console.log(user.username); // 'johndoe'
- * console.log(user.apiKey); // undefined - private property not accessible
- * console.log(user.makeApiCall('data')); // 'Calling data with key secret-key-123'
- *
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures|MDN Closures}
+ * ```js
+ * const observable = new Observable({ count: 0 });
+ * observable.subscribe((state) => console.log(state.count));
+ * observable.update((state) => ({ count: state.count + 1 }));
+ * ```
  */
-function createPrivateState(initialState = {}) {
-    const privateState = { ...initialState };
-    const publicInterface = {};
+class Observable {
+    #state;
+    #listeners = new Set();
 
-    return {
-        /**
-         * Adds a private property to the object's encapsulated state.
-         *
-         * @param {string} key - The property name
-         * @param {*} value - The property value
-         * @returns {PrivateObjectBuilder} The builder instance for chaining
-         * @throws {TypeError} If key is not a string
-         */
-        addPrivateProperty(key, value) {
-            privateState[key] = value;
-            return this;
-        },
+    /**
+     * Provides the initial state to use for the observable.
+     * @constructor
+     * @param {Object} initialState - The initial state of the observable.
+     */
+    constructor(initialState = {}) {
+        this.#state = initialState;
+    }
 
-        /**
-         * Adds a public property directly accessible on the built object.
-         *
-         * @param {string} key - The property name
-         * @param {*} value - The property value
-         * @returns {PrivateObjectBuilder} The builder instance for chaining
-         */
-        addPublicProperty(key, value) {
-            publicInterface[key] = value;
-            return this;
-        },
+    /**
+     * Subscribes a listener to the observable.
+     * @param {Function} listener - The listener to subscribe.
+     * @returns {Function} A function to unsubscribe the listener.
+     */
+    subscribe(listener) {
+        if (typeof listener !== "function")
+            throw new TypeError("Listener must be a function");
+        this.#listeners.add(listener);
+        return () => this.#listeners.delete(listener);
+    }
 
-        /**
-         * Adds a method that has access to the private state.
-         * The first parameter passed to the method will be the private state object.
-         *
-         * @param {string} key - The method name
-         * @param {PrivateMethodCallback} fn - The method implementation
-         * @returns {PrivateObjectBuilder} The builder instance for chaining
-         *
-         * @example
-         * .addPublicMethod('getUserData', (privateState, format) => {
-         *   const data = { email: privateState.email, name: privateState.name };
-         *   return format === 'json' ? JSON.stringify(data) : data;
-         * })
-         */
-        addPublicMethod(key, fn) {
-            publicInterface[key] = (...args) => fn(privateState, ...args);
-            return this;
-        },
-
-        /**
-         * Adds multiple public methods at once.
-         *
-         * @param {Object} functions - An object containing method names as keys and implementations as values
-         * @returns {PrivateObjectBuilder} The builder instance for chaining
-         *
-         * @example
-         * .addPublicMethods({
-         *   getUserData: (privateState, format) => {
-         *     const data = { email: privateState.email, name: privateState.name };
-         *     return format === 'json' ? JSON.stringify(data) : data;
-         *   },
-         *   getFullName: (privateState) => `${privateState.firstName} ${privateState.lastName}`
-         * })
-         */
-        addPublicMethods(functions) {
-            Object.entries(functions).forEach(([key, fn]) => {
-                this.addPublicMethod(key, fn);
-            });
-            return this;
-        },
-
-        /**
-         * Defines a getter for accessing private state properties.
-         *
-         * @param {string} key - The property name for the getter
-         * @param {GetterCallback} getterFn - Function that receives private state and returns a value
-         * @returns {PrivateObjectBuilder} The builder instance for chaining
-         *
-         * @example
-         * .addGetter('formattedEmail', (privateState) => {
-         *   return `${privateState.name} <${privateState.email}>`;
-         * })
-         */
-        addGetter(key, getterFn) {
-            Object.defineProperty(publicInterface, key, {
-                get: () => getterFn(privateState),
-                enumerable: true,
-                configurable: true,
-            });
-            return this;
-        },
-
-        /**
-         * Defines a setter for modifying private state properties.
-         *
-         * @param {string} key - The property name for the setter
-         * @param {SetterCallback} setterFn - Function that receives private state and the new value
-         * @returns {PrivateObjectBuilder} The builder instance for chaining
-         *
-         * @example
-         * .addSetter('password', (privateState, value) => {
-         *   if (value.length < 8) throw new Error('Password too short');
-         *   privateState.passwordHash = hashPassword(value);
-         * })
-         */
-        addSetter(key, setterFn) {
-            Object.defineProperty(publicInterface, key, {
-                set: (value) => {
-                    setterFn(privateState, value);
-                },
-                enumerable: true,
-                configurable: true,
-            });
-            return this;
-        },
-
-        /**
-         * Defines both getter and setter for a property in one call.
-         *
-         * @param {string} key - The property name
-         * @param {GetterCallback} getterFn - Function that receives private state and returns a value
-         * @param {SetterCallback} setterFn - Function that receives private state and the new value
-         * @returns {PrivateObjectBuilder} The builder instance for chaining
-         *
-         * @example
-         * .addAccessor('profile',
-         *   (privateState) => ({ name: privateState.name, email: privateState.email }),
-         *   (privateState, value) => {
-         *     if (value && typeof value === 'object') {
-         *       if (value.name) privateState.name = value.name;
-         *       if (value.email) privateState.email = value.email;
-         *     }
-         *   }
-         * )
-         */
-        addAccessor(key, getterFn, setterFn) {
-            Object.defineProperty(publicInterface, key, {
-                get: () => getterFn(privateState),
-                set: (value) => {
-                    setterFn(privateState, value);
-                },
-                enumerable: true,
-                configurable: true,
-            });
-            return this;
-        },
-
-        /**
-         * Finalizes the object creation and returns the sealed result.
-         * After calling this method, the builder cannot be used anymore.
-         *
-         * @returns {Object} The constructed object with private state encapsulation
-         */
-        build() {
-            return DeepSeal(publicInterface);
-        },
-    };
+    /**
+     * Updates the state of the observable.
+     * @param {Function} updater - The function to update the state.
+     */
+    update(updater) {
+        if (typeof updater !== "function")
+            throw new TypeError("Updater must be a function");
+        Object.assign(this.#state, updater({ ...this.#state }));
+        for (const listener of this.#listeners) listener({ ...this.#state });
+    }
 }
 
 /**
- * @typedef EmitterObject
- * @property {function(string, Function): void} on - Registers a callback for a specific event type
- * @property {function(string, any): void} emit - Emits an event with optional data
- * @property {function(string, Function): void} off - Removes a callback for a specific event type
- */
-
-/**
- * Creates an event emitter object. The returned object is the fastest possible
- * event emitter implementation for JavaScript.
+ * @class PluginRegistry
+ * @classdesc Provides a simple registry to hold plugins that are compliant
+ * with SoraJS's architecture.
  *
- * @returns {EmitterObject} An event emitter object with on, emit, and off methods
+ * @example
+ * ```js
+ * const registry = new PluginRegistry(["plugin"]);
+ * registry.register("plugin", [
+ *     { name: "plugin1", version: "1.0.0" },
+ *     { name: "plugin2", version: "2.0.0" }
+ * ]);
+ * console.log(registry.get("plugin", "plugin1"));
+ * ```
  */
-function createEmitter() {
-    const events = new Map();
+class PluginRegistry {
+    #plugins = new Map();
 
-    return {
-        /**
-         * Registers a callback for a specific event type
-         * @param {string} eventType - The type of event to listen for
-         * @param {Function} callback - The callback function to be called when the event is emitted
-         */
-        on(eventType, callback) {
-            if (!events.has(eventType)) events.set(eventType, new Set());
-            events.get(eventType).add(callback);
-        },
-        /**
-         * Emits an event with the given data
-         * @param {string} eventType - The type of event to emit
-         * @param {any} data - The data to be passed to the event listeners
-         */
-        emit(eventType, data) {
-            const listeners = events.get(eventType);
-            if (!listeners) return;
-            // Optimisation Lesson!
-            // Direct for loops are the fastest way to iterate
-            // over a Set. `Array.forEach` has slightly more overhead.
-            for (const listener of listeners) listener(data);
-        },
-        /**
-         * Removes a callback for a specific event type
-         * @param {string} eventType - The type of event to stop listening for
-         * @param {Function} callback - The callback function to be removed
-         */
-        off(eventType, callback) {
-            const listeners = events.get(eventType);
-            if (!listeners) return;
-            listeners.delete(callback);
-            if (listeners.size === 0) events.delete(eventType);
-        },
-    };
-}
+    /**
+     * Builds the registry with the specified store types.
+     * @param {Array} storeTypes - The types of items to store
+     */
+    constructor(storeTypes) {
+        if (!Array.isArray(storeTypes))
+            throw new Error("storeTypes must be an array");
 
-function createObservable(initialState = {}) {
-    const state = { ...initialState };
-    const listeners = new Set();
-
-    return {
-        getState() {
-            return { ...state };
-        },
-        subscribe(listener) {
-            if (typeof listener !== "function")
-                throw new TypeError("Listener must be a function");
-            listeners.add(listener);
-            return () => listeners.delete(listener);
-        },
-        update(updater) {
-            if (typeof updater !== "function")
-                throw new TypeError("Updater must be a function");
-            Object.assign(state, updater({ ...state }));
-            listeners.forEach((listener) => listener({ ...state }));
-        },
-    };
-}
-
-/**
- * @typedef {Object} PluginRegistry
- * @property {function(Array): PluginRegistry} build - Builds the registry with the specified store types
- * @property {function(string, Array): void} register - Registers a list of items to the registry
- * @property {function(string, string): Object} get - Retrieves an item from the registry
- */
-function createPluginRegistry() {
-    const store = new Map();
-    let initialised = false;
-
-    return {
-        /**
-         * Builds the registry with the specified store types.
-         * @param {Array} storeTypes - The types of items to store
-         */
-        build(storeTypes) {
-            if (!Array.isArray(storeTypes))
-                throw new Error("storeTypes must be an array");
-
-            for (const type of storeTypes) {
-                store.set(type, new Map());
-            }
-
-            Object.seal(store);
-            initialised = true;
-        },
-        /**
-         * Registers a list of items to the registry.
-         * @param {string} type - The type of items to register
-         * @param {Array} items - The items to register
-         */
-        register(type, items) {
-            if (!initialised) throw new Error("Registry is not initialised!");
-            if (!Array.isArray(items))
-                throw new Error("Invalid items provided for registration");
-
-            const handler = store.get(type);
-            if (!handler) throw new Error(`Unknown type: ${type}`);
-
-            for (const item of items) {
-                if (!item.name)
-                    throw new Error("Item must have a name property");
-                handler.set(item.name, item);
-            }
-        },
-        /**
-         * Retrieves an item from the registry.
-         * @param {string} type - The type of item to retrieve
-         * @param {string} data - The name of the item to retrieve
-         * @returns {Object} The item from the registry
-         */
-        get(type, data) {
-            if (!initialised) throw new Error("Registry is not initialised!");
-
-            const handler = store.get(type);
-            if (!handler) throw new Error(`Unknown type: ${type}`);
-
-            const item = handler.get(data);
-            if (!item) throw new Error(`Unknown item: ${data}`);
-
-            return item;
-        },
-    };
-}
-
-/**
- * Creates an object pool for managing reusable objects. This
- * should be used for performance-sensitive applications
- * where object creation and destruction are costly.
- *
- * @param {Function} [factory] - Optional factory function to create new objects
- * @param {Function} [reset] - Optional function to reset objects before reuse
- * @returns {Object} An object pool with methods to manage object lifecycle
- */
-function createObjectPool(
-    factory = () => ({}),
-    reset = (obj) => {
-        // Clear all properties by default
-        for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                delete obj[key];
-            }
+        for (const type of storeTypes) {
+            this.#plugins.set(type, new Map());
         }
-        return obj;
-    },
-) {
-    const available = [];
-    const inUse = new Set();
+    }
 
-    return {
-        /**
-         * Initialize the pool with a specific number of objects
-         * @param {number} amount - Number of objects to pre-create
-         */
-        initialize(amount) {
-            if (amount < 0) throw new Error("Amount must be non-negative");
+    /**
+     * Registers a list of items to the registry.
+     * @param {string} type - The type of items to register
+     * @param {Array} items - The items to register
+     */
+    register(type, items) {
+        if (!Array.isArray(items))
+            throw new Error("Invalid items provided for registration");
 
-            for (let i = 0; i < amount; i++) {
-                const obj = factory();
-                available.push(obj);
+        const handler = this.#plugins.get(type);
+        if (!handler) throw new Error(`Unknown type: ${type}`);
+
+        for (const item of items) {
+            if (!item.name) throw new Error("Item must have a name property");
+            handler.set(item.name, item);
+        }
+    }
+    /**
+     * Retrieves an item from the registry.
+     * @param {string} type - The type of item to retrieve
+     * @param {string} data - The name of the item to retrieve
+     * @returns {Object} The item from the registry
+     */
+    get(type, data) {
+        const handler = this.#plugins.get(type);
+        if (!handler) throw new Error(`Unknown type: ${type}`);
+
+        const item = handler.get(data);
+        if (!item) throw new Error(`Unknown item: ${data}`);
+
+        return item;
+    }
+}
+
+/**
+ * A class that manages a pool of reusable objects for performance-sensitive
+ * applications where object creation and destruction are costly.
+ */
+class ObjectPool {
+    #available = [];
+    #inUse = new Set();
+
+    /**
+     * Creates a new object pool instance
+     *
+     * @param {Function} [factory] - Optional factory function to create new objects
+     * @param {Function} [reset] - Optional function to reset objects before reuse
+     */
+    constructor(
+        factory = () => ({}),
+        reset = (obj) => {
+            // Clear all properties by default
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    delete obj[key];
+                }
             }
-
-            return this;
-        },
-
-        /**
-         * Get an object from the pool or create a new one if none available
-         * @param {boolean} [createIfEmpty=true] - Whether to create a new object if pool is empty
-         * @returns {Object} An object from the pool
-         */
-        get(createIfEmpty = true) {
-            let obj;
-
-            if (available.length > 0) {
-                obj = available.pop();
-            } else if (createIfEmpty) {
-                obj = factory();
-            } else {
-                throw new Error("No objects available in the pool");
-            }
-
-            inUse.add(obj);
             return obj;
         },
+    ) {
+        this.factory = factory;
+        this.reset = reset;
+    }
 
-        /**
-         * Release an object back to the pool
-         * @param {Object} obj - The object to release
-         */
-        release(obj) {
-            if (obj === null || typeof obj !== "object") {
-                throw new TypeError("Only objects can be released");
-            }
+    /**
+     * Initialize the pool with a specific number of objects
+     *
+     * @param {number} amount - Number of objects to pre-create
+     * @returns {ObjectPool} This instance for method chaining
+     */
+    initialize(amount) {
+        if (amount < 0) throw new Error("Amount must be non-negative");
 
-            if (!inUse.has(obj)) {
-                throw new Error("Object was not acquired from this pool");
-            }
+        for (let i = 0; i < amount; i++) {
+            const obj = this.factory();
+            this.#available.push(obj);
+        }
 
-            inUse.delete(obj);
-            reset(obj);
-            available.push(obj);
-        },
+        return this;
+    }
 
-        /**
-         * Clear all objects from the pool
-         */
-        clear() {
-            available.length = 0;
-            inUse.clear();
-        },
+    /**
+     * Get an object from the pool or create a new one if none available
+     *
+     * @param {boolean} [createIfEmpty=true] - Whether to create a new object if pool is empty
+     * @returns {Object} An object from the pool
+     * @throws {Error} If the pool is empty and createIfEmpty is false
+     */
+    get(createIfEmpty = true) {
+        let obj;
 
-        /**
-         * Get information about the pool's current state
-         * @returns {Object} Pool statistics
-         */
-        getStatus() {
-            return {
-                available: available.length,
-                inUse: inUse.size,
-                total: available.length + inUse.size,
-            };
-        },
+        if (this.#available.length > 0) {
+            obj = this.#available.pop();
+        } else if (createIfEmpty) {
+            obj = this.factory();
+        } else {
+            throw new Error("No objects available in the pool");
+        }
 
-        /**
-         * Pre-allocate additional objects to the pool
-         * @param {number} amount - Number of objects to add
-         */
-        grow(amount) {
-            return this.initialize(amount);
-        },
+        this.#inUse.add(obj);
+        return obj;
+    }
 
-        /**
-         * Release all in-use objects back to the pool
-         */
-        releaseAll() {
-            // Convert to array since we'll be modifying the set during iteration
-            [...inUse].forEach((obj) => this.release(obj));
-        },
-    };
+    /**
+     * Release an object back to the pool
+     *
+     * @param {Object} obj - The object to release
+     * @throws {TypeError} If the provided value is not an object
+     * @throws {Error} If the object was not acquired from this pool
+     */
+    release(obj) {
+        if (obj === null || typeof obj !== "object") {
+            throw new TypeError("Only objects can be released");
+        }
+
+        if (!this.#inUse.has(obj)) {
+            throw new Error("Object was not acquired from this pool");
+        }
+
+        this.#inUse.delete(obj);
+        this.reset(obj);
+        this.#available.push(obj);
+    }
+
+    /**
+     * Clear all objects from the pool
+     */
+    clear() {
+        this.#available.length = 0;
+        this.#inUse.clear();
+    }
+
+    /**
+     * Get information about the pool's current state
+     *
+     * @returns {Object} Pool statistics with available, inUse, and total counts
+     */
+    getStatus() {
+        return {
+            available: this.#available.length,
+            inUse: this.#inUse.size,
+            total: this.#available.length + this.#inUse.size,
+        };
+    }
+
+    /**
+     * Pre-allocate additional objects to the pool
+     *
+     * @param {number} amount - Number of objects to add
+     * @returns {ObjectPool} This instance for method chaining
+     */
+    grow(amount) {
+        return this.initialize(amount);
+    }
+
+    /**
+     * Release all in-use objects back to the pool
+     */
+    releaseAll() {
+        [...this.#inUse].forEach((obj) => this.release(obj));
+    }
 }
 
 /**
- * @typedef {Object} IDGeneratorInstance
- * @property {number} nextID - The next ID to be assigned
- * @property {number[]} reclaimedIDs - Array of IDs that have been released and can be reused
+ * @class
+ *
+ * @classdesc An implementation for efficiently managing and generating IDs.
+ * Generates the lowest available ID and reclaims IDs when they are
+ * released.
+
+ * @todo Extract MinHeap from PriorityQueue into AlgorithmUtility and implement
+ * the MinHeap in the IDGenerator.
  */
-function createIDGenerator() {
-    let nextID = 0;
-    let reclaimedIDs = [];
+class IDGenerator {
+    #nextID = 0;
+    #reclaimedIDs = [];
 
-    return {
-        /**
-         * Creates and returns a new unique ID
-         * @returns {number} A unique ID
-         */
-        create() {
-            if (reclaimedIDs.length > 0) {
-                return reclaimedIDs.shift();
-            }
+    /**
+     * Creates and returns a new unique ID
+     * @returns {number} A unique ID
+     */
+    create() {
+        if (this.#reclaimedIDs.length > 0) {
+            return this.#reclaimedIDs.shift();
+        }
 
-            return nextID++;
-        },
+        return this.#nextID++;
+    }
 
-        /**
-         * Releases an ID so it can be reused
-         * @param {number} id - The ID to release
-         * @returns {boolean} True if the ID was successfully released, false otherwise
-         */
-        release(id) {
-            if (id < 0 || id >= nextID || reclaimedIDs.includes(id)) {
-                return false;
-            }
+    /**
+     * Releases an ID so it can be reused
+     * @param {number} id - The ID to release
+     * @returns {boolean} True if the ID was successfully released, false otherwise
+     */
+    release(id) {
+        if (id < 0 || id >= this.#nextID || this.#reclaimedIDs.includes(id)) {
+            return false;
+        }
 
-            let insertIndex = 0;
-            while (
-                insertIndex < reclaimedIDs.length &&
-                reclaimedIDs[insertIndex] < id
-            ) {
-                insertIndex++;
-            }
+        let insertIndex = 0;
+        while (
+            insertIndex < this.#reclaimedIDs.length &&
+            this.#reclaimedIDs[insertIndex] < id
+        ) {
+            insertIndex++;
+        }
 
-            reclaimedIDs.splice(insertIndex, 0, id);
-            return true;
-        },
-        /**
-         * Checks if an ID is valid and currently in use
-         * @param {number} id - The ID to check
-         * @returns {boolean} True if the ID is valid and in use, false otherwise
-         */
-        isValid(id) {
-            return id >= 0 && id < nextID && !reclaimedIDs.includes(id);
-        },
-        /**
-         * Returns the number of active IDs currently in use
-         * @returns {number} The count of active IDs
-         */
-        getActiveCount() {
-            return nextID - reclaimedIDs.length;
-        },
-        /**
-         * Resets the ID generator to its initial state
-         */
-        reset() {
-            nextID = 0;
-            reclaimedIDs = [];
-        },
-    };
+        this.#reclaimedIDs.splice(insertIndex, 0, id);
+        return true;
+    }
+
+    /**
+     * Releases an ID so it can be reused
+     * @param {number} id - The ID to release
+     * @returns {boolean} True if the ID was successfully released, false otherwise
+     */
+    isValid(id) {
+        return id >= 0 && id < this.#nextID && !this.#reclaimedIDs.includes(id);
+    }
+
+    /**
+     * Returns the number of active IDs currently in use
+     * @returns {number} The count of active IDs
+     */
+    getActiveCount() {
+        return this.#nextID - this.#reclaimedIDs.length;
+    }
+
+    /**
+     * Resets the ID generator to its initial state
+     */
+    reset() {
+        this.#nextID = 0;
+        this.#reclaimedIDs = [];
+    }
 }
 
 /**
@@ -573,15 +382,12 @@ function createIDGenerator() {
  * and default values. It also serves the role of providing explicit documentation of intended
  * object structures within SoraJS's architecture.
  *
- * Unlike classes, structs focus purely on data structure without methods or inheritance.
- * The returned objects are sealed to prevent adding new properties after creation.
- *
  * @param {Object} template - The blueprint object containing default property values
  * @returns {Object} An object with a spawn method for creating instances of the struct
  *
  * @example
  * // Define a User struct
- * const UserStruct = createStruct({
+ * const UserStruct = new Struct({
  *   id: '',
  *   name: '',
  *   email: '',
@@ -600,139 +406,253 @@ function createIDGenerator() {
  *
  * todo - Add type checks and validation.
  */
-function createStruct(template) {
-    return {
-        /**
-         * Creates an instance of the struct by combining the template with provided values.
-         * The resulting object is sealed to prevent adding new properties.
-         *
-         * @param {Object} values - Values to override defaults from the template
-         * @returns {Object} A sealed object with properties from both template and values
-         */
-        spawn(values) {
-            return DeepSeal({
-                ...template,
-                ...values,
-            });
-        },
+class Struct {
+    #compiledTemplate;
+
+    static DEFAULT_VALUES = {
+        number: 0,
+        object: () => ({}),
+        string: "",
     };
+
+    // @ts-ignore
+    static CONSTRUCTOR_DEFAULTS = new Map([
+        [Function, () => {}],
+        [Map, new Map()],
+        [Set, new Set()],
+        [Array, []],
+        [Date, new Date()],
+    ]);
+
+    constructor(template) {
+        this.#compiledTemplate = this.#compileTemplate(template);
+    }
+
+    #compileTemplate(template) {
+        const compiled = [];
+
+        for (const [key, value] of Object.entries(template)) {
+            const entry = { key };
+
+            if (typeof value === "function" && value.prototype) {
+                entry.type = "constructor";
+                entry.constructor = value;
+                entry.defaultFactory =
+                    Struct.CONSTRUCTOR_DEFAULTS.get(value) || (() => null);
+            } else {
+                entry.type = "primitive";
+                entry.expectedType = typeof value;
+                entry.defaultValue = Struct.DEFAULT_VALUES[typeof value];
+            }
+
+            compiled.push(entry);
+        }
+
+        return compiled;
+    }
+
+    spawn(values = {}) {
+        const result = {};
+
+        for (let i = 0; i < this.#compiledTemplate.length; i++) {
+            const entry = this.#compiledTemplate[i];
+            const key = entry.key;
+            const providedValue = values[key];
+
+            if (providedValue === null) {
+                result[key] = null;
+                continue;
+            }
+
+            if (providedValue === undefined) {
+                result[key] =
+                    entry.type === "constructor"
+                        ? entry.defaultFactory()
+                        : entry.defaultValue;
+                continue;
+            }
+
+            if (entry.type === "constructor") {
+                result[key] =
+                    providedValue instanceof entry.constructor
+                        ? providedValue
+                        : entry.defaultFactory();
+            } else {
+                result[key] =
+                    typeof providedValue === entry.expectedType
+                        ? providedValue
+                        : entry.defaultValue;
+            }
+        }
+
+        return result;
+    }
 }
 
-/**
- * Creates a priority queue data structure using a heap.
- *
- * @returns {Object} An object with methods to define priorities, add tasks, and get the next task.
- */
-function createPriorityQueue(priorities = {}) {
-    const heap = [];
-    let priorityMap = priorities;
+class PriorityQueue {
+    #heap = [];
 
-    return {
-        addTask(task) {
-            heap.push(task);
-            this.bubbleUp(heap.length - 1);
-        },
+    /**
+     * @param {function(any, any): number} comparator
+     */
+    constructor(comparator = (a, b) => a - b) {
+        this.comparator = comparator;
+    }
 
-        getNextTask() {
-            if (heap.length === 0) return null;
+    /**
+     * Processes the entire queue with a callback function
+     * @param {Function} processor - Function to process each element
+     * @param {object} options - Options for processing
+     * @param {number} [options.limit=Infinity] - Maximum number of elements to process
+     * @param {boolean} [options.preserveItems=false] - Whether to preserve items in the queue
+     * @returns {Array} Array of processed elements
+     */
+    processQueue(processor, options = {}) {
+        const results = [];
+        let count = 0;
 
-            const task = heap[0];
-            heap[0] = heap[heap.length - 1];
-            heap.pop();
+        const limit = options.limit ?? Infinity;
+        const preserveItems = options.preserveItems ?? false;
 
-            if (heap.length > 0) this.sinkDown(0);
-            return task;
-        },
+        if (preserveItems) {
+            for (let i = 0; i < this.#heap.length && count < limit; i++) {
+                const result = processor(this.#heap[i]);
+                if (result !== undefined) {
+                    results.push(result);
+                }
+            }
+            count++;
+        } else {
+            while (!this.isEmpty() && count < limit) {
+                const item = this.dequeue();
+                const result = processor(item);
+                results.push(result);
+                count++;
+            }
+        }
 
-        getAllTasks() {
-            return [...heap];
-        },
+        return results;
+    }
 
-        clearAllTasks() {
-            heap.length = 0;
-        },
+    /**
+     * Adds an element to the queue
+     * @param {*} element - The element to add to the queue
+     */
+    enqueue(element) {
+        this.#heap.push(element);
+        this.#siftUp(this.#heap.length - 1);
+    }
 
-        // This is debug code, remove!
-        getHeap() {
-            return heap;
-        },
+    /**
+     * Removes and returns the top element from the queue
+     * @returns {*} The top element from the queue
+     */
+    dequeue() {
+        if (this.#heap.length === 0) return null;
 
-        getParentIndex(i) {
-            return Math.floor((i - 1) / 2);
-        },
+        const top = this.#heap[0];
+        const bottom = this.#heap.pop();
 
-        getLeftChildIndex(i) {
-            return 2 * i + 1;
-        },
+        if (this.#heap.length > 0) {
+            this.#heap[0] = bottom;
+            this.#siftDown(0);
+        }
 
-        getRightChildIndex(i) {
-            return 2 * i + 2;
-        },
+        return top;
+    }
 
-        hasParent(i) {
-            return this.getParentIndex(i) >= 0;
-        },
+    /**
+     * @returns {Number}
+     */
+    size() {
+        return this.#heap.length;
+    }
 
-        hasLeftChild(i) {
-            return this.getLeftChildIndex(i) < heap.length;
-        },
+    /**
+     * @returns - {boolean}
+     */
+    isEmpty() {
+        return this.#heap.length === 0;
+    }
 
-        hasRightChild(i) {
-            return this.getRightChildIndex(i) < heap.length;
-        },
+    peek() {
+        return this.#heap.length > 0 ? this.#heap[0] : null;
+    }
 
-        swap(i, j) {
-            [heap[i], heap[j]] = [heap[j], heap[i]];
-        },
+    /**
+     * Removes a specific item from the queue
+     * @param {*} item - The item to remove
+     * @returns {boolean} True if the item was removed, false otherwise
+     */
+    delete(item) {
+        const index = this.#heap.indexOf(item);
+        if (index === -1) return false;
 
-        bubbleUp(i) {
-            while (
-                this.hasParent(i) &&
-                priorityMap[heap[i].priority] >
-                    priorityMap[heap[this.getParentIndex(i)].priority]
+        const lastElement = this.#heap.pop();
+        if (index === this.#heap.length) return true;
+
+        this.#heap[index] = lastElement;
+        this.#siftDown(index);
+        return true;
+    }
+
+    #siftUp(index) {
+        let parent = Math.floor((index - 1) / 2);
+
+        while (
+            index > 0 &&
+            this.comparator(this.#heap[parent], this.#heap[index]) > 0
+        ) {
+            [this.#heap[parent], this.#heap[index]] = [
+                this.#heap[index],
+                this.#heap[parent],
+            ];
+            index = parent;
+            parent = Math.floor((index - 1) / 2);
+        }
+    }
+
+    #siftDown(index) {
+        const length = this.#heap.length;
+        let element = index;
+
+        while (true) {
+            let leftChild = 2 * element + 1;
+            let rightChild = 2 * element + 2;
+            let smallest = element;
+
+            if (
+                leftChild < length &&
+                this.comparator(this.#heap[leftChild], this.#heap[smallest]) < 0
             ) {
-                const parentIndex = this.getParentIndex(i);
-                this.swap(i, parentIndex);
-                i = parentIndex;
+                smallest = leftChild;
             }
-        },
 
-        sinkDown(i) {
-            let maxIndex = i;
-
-            while (true) {
-                if (
-                    this.hasLeftChild(i) &&
-                    priorityMap[heap[this.getLeftChildIndex(i)].priority] >
-                        priorityMap[heap[maxIndex].priority]
-                ) {
-                    maxIndex = this.getLeftChildIndex(i);
-                }
-
-                if (
-                    this.hasRightChild(i) &&
-                    priorityMap[heap[this.getRightChildIndex(i)].priority] >
-                        priorityMap[heap[maxIndex].priority]
-                ) {
-                    maxIndex = this.getRightChildIndex(i);
-                }
-
-                if (maxIndex === i) break;
-
-                this.swap(i, maxIndex);
-                i = maxIndex;
+            if (
+                rightChild < length &&
+                this.comparator(this.#heap[rightChild], this.#heap[smallest]) <
+                    0
+            ) {
+                smallest = rightChild;
             }
-        },
-    };
+
+            if (smallest === element) break;
+
+            [this.#heap[element], this.#heap[smallest]] = [
+                this.#heap[smallest],
+                this.#heap[element],
+            ];
+            element = smallest;
+        }
+    }
 }
 
 export {
-    createPrivateState,
-    createEmitter,
-    createObservable,
-    createPluginRegistry,
-    createObjectPool,
-    createIDGenerator,
-    createStruct,
-    createPriorityQueue,
+    EventEmitter,
+    Observable,
+    PluginRegistry,
+    ObjectPool,
+    IDGenerator,
+    Struct,
+    PriorityQueue,
 };

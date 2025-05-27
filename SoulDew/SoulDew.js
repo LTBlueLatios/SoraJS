@@ -1,37 +1,19 @@
-import {
-    createPrivateState,
-    createStruct,
-    // createPriorityQueue,
-} from "../Utilities/ObjectFactory.js";
-
-const Pipeline = createStruct({
-    name: String,
-    validEvents: Set,
-    handlers: Map,
-    responseHandlers: Map,
-    sleeping: Set,
-});
-
-// const EVENT_PRIORITY = Object.freeze({
-//     IMPORTANT: 4,
-//     ELEVATED: 3,
-//     NORMAL: 2,
-//     DISCREET: 1,
-//     BACKGROUND: 0,
-// });
+import { createPrivateState } from "../Utilities/FunctionUtility.js";
+import { PriorityQueue } from "../Utilities/ObjectFactory.js";
 
 /**
  * @typedef {Object} EventObject
  * @property {boolean} cancelled - Whether the event propagation has been cancelled
  * @property {function(): void} cancelEvent - Function to cancel further event propagation
  * @property {Object} context - Context object associated with the current handler
- * @property {Object} emitter - Emitter context object associated with the current handler
+ * @property {Object} emitterContext - Emitter context object associated with the current handler
  * @property {string} listenerName - Name of the listener that emitted the event
  * @property {string} emitterName - Name of the emitter that emitted the event
  */
 
 /**
  * @typedef {Object} HandlerOptions
+ * @property {boolean} [sleeping=false] - Whether the handler is currently sleeping (disabled)
  * @property {number} [priority=0] - Priority of the handler (higher numbers execute first)
  * @property {boolean} [once=false] - Whether the handler should be removed after being called once
  * @property {Object} [metadata] - Metadata object to associate with the handler
@@ -46,7 +28,14 @@ const Pipeline = createStruct({
  */
 
 /**
- * Interface for interacting with a pipeline
+ * @typedef {Object} EmitterOptions
+ * @property {string[]} [tags] - Tags to filter the event
+ * @property {function(): void} [onCancel] - Callback to execute when the event is cancelled
+ * @property {Object} [context] - Context object to bind to the emitter
+ * @property {string} [name] - Name of the emitter
+ */
+
+/**
  * @typedef {Object} PipelineInterface
  * @property {string} name - The name of the pipeline
  * @property {function(string, ...any): void} emit - Emits an event on this pipeline
@@ -55,21 +44,8 @@ const Pipeline = createStruct({
  * @property {function(string, function(any[]): any): void} onRequest - Registers a request handler for this pipeline
  * @property {function(string, Function): void} off - Removes an event handler from this pipeline
  * @property {function(string, Function): void} offRequest - Removes a request handler from this pipeline
- * @property {function(Function): Function} sleep - Puts a listener to sleep (temporarily disables it)
- * @property {function(Function): void} wake - Wakes a sleeping listener
+ * @property {function(string, Function): void} registerPredicate - Registers a global predicate within this pipeline
  */
-
-const PipelineInterface = createStruct({
-    name: String,
-    emit: Function,
-    request: Function,
-    on: Function,
-    onRequest: Function,
-    off: Function,
-    offRequest: Function,
-    sleep: Function,
-    wake: Function,
-});
 
 /**
  * @typedef {Object} PipelinesState
@@ -77,6 +53,14 @@ const PipelineInterface = createStruct({
  * @property {function(string): Object} getPipeline - Get a pipeline by name
  * @property {function(string): void} removePipeline - Delete a pipeline by name
  * @property {function(): void} removeAllPipelines - Clears all pipelines
+ */
+
+/**
+ * @typedef {Object} HandlerInterface
+ * @property {Object} handler - The handler object
+ * @property {function(): void} sleep - Temporarily disables the handler
+ * @property {function(): void} wake - Re-enables a sleeping handler
+ * @property {function(): void} off - Completely removes the handler
  */
 
 /**
@@ -88,17 +72,17 @@ const PipelinesState = createPrivateState({ pipelines: new Map() })
             if (privateState.pipelines.has(name))
                 throw new Error(`Pipeline ${name} already exists`);
 
-            const pipeline = Pipeline.spawn({
+            privateState.pipelines.set(name, {
                 name: name,
                 validEvents: new Set(validEvents),
-                handlers: new Map(),
                 responseHandlers: new Map(),
-                sleeping: new Set(),
                 predicates: new Map(),
+                priorityQueue: new PriorityQueue(
+                    (a, b) => b.priority - a.priority,
+                ),
             });
-            privateState.pipelines.set(name, pipeline);
 
-            return PipelineInterface.spawn({
+            return {
                 name,
                 emit: SoulDew.emit.bind(SoulDew, name),
                 request: SoulDew.request.bind(SoulDew, name),
@@ -106,13 +90,11 @@ const PipelinesState = createPrivateState({ pipelines: new Map() })
                 onRequest: SoulDew.onRequest.bind(SoulDew, name),
                 off: SoulDew.off.bind(SoulDew, name),
                 offRequest: SoulDew.offRequest.bind(SoulDew, name),
-                sleep: SoulDew.sleep.bind(SoulDew, name),
-                wake: SoulDew.wake.bind(SoulDew, name),
                 registerPredicate: SoulDew.registerPredicate.bind(
                     SoulDew,
                     name,
                 ),
-            });
+            };
         },
         getPipeline(privateState, name) {
             if (!privateState.pipelines.has(name))
@@ -139,8 +121,9 @@ const SOULDEW_STATE = Object.seal({
  * controlled, explicit communication between different parts of the system.
  *
  * The usage of pipelines provides an effective solution for modular event emitting
- * and prevents event spaghettification. Each pipeline represents a dedicated
+ * and preventing event spaghettification. Each pipeline represents a dedicated
  * communication channel with a strictly defined set of events that can occur on it.
+ * Several utilities are provided for your convenience.
  *
  * @namespace
  */
@@ -149,9 +132,6 @@ const SoulDew = Object.freeze({
     getPipeline: SOULDEW_STATE.pipelines.getPipeline,
     removePipeline: SOULDEW_STATE.pipelines.removePipeline,
     removeAllPipelines: SOULDEW_STATE.pipelines.removeAllPipelines,
-    // Making this flush with the event system is a really massive change
-    // to make. I am no position to do so until the rest of the system is complete.
-    // priorityQueue: createPriorityQueue(EVENT_PRIORITY),
 
     /**
      * Emits an event on a specific pipeline
@@ -163,13 +143,12 @@ const SoulDew = Object.freeze({
      * @param {string} pipelineName - Name of the pipeline
      * @param {string} eventName - Name of the event to emit
      * @param {any} data - Data to pass to event handlers
-     * @param {object} options - Options for the emitter
+     * @param {EmitterOptions} options - Options for the emitter
      * @throws {Error} If event is not registered for the pipeline
      *
-     * @example
-     * // Emit a 'userLoggedIn' event with a user object
-     * SoulDew.emit('auth', 'userLoggedIn', { id: 123, username: 'exampleUser' });
-     *
+     * @todo Consider refactoring this method to use a plugin registry for cleanup
+     * and robustness. This would allow for better management of event handlers and
+     * their associated metadata.
      */
     emit(pipelineName, eventName, data, options = {}) {
         const pipeline = this.getPipeline(pipelineName);
@@ -178,90 +157,97 @@ const SoulDew = Object.freeze({
                 `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
             );
 
-        const handlers = pipeline.handlers.get(eventName);
-        if (!handlers || handlers.length === 0) return;
         const emitTags = options.tags ?? [];
         const onCancel = options.onCancel ?? null;
         const emitterContext = options.context ?? {};
         const emitterName = options.name ?? "";
 
-        // I'd love to make this a struct, but it absolutely kills performance.
         const eventObject = {
             cancelled: false,
             listenerName: "",
-            // At this point I'm just trolling lol
-            // the hell will this ever be needed?
             emitterName,
             cancelEvent() {
                 this.cancelled = true;
-                onCancel?.(eventObject);
+                onCancel?.();
             },
             context: {},
             emitterContext,
         };
 
-        // console.log(this.priorityQueue.getAllTasks());
+        pipeline.priorityQueue.processQueue(
+            (handler) => {
+                if (handler.eventName !== eventName) return;
 
-        for (const handler of handlers) {
-            if (eventObject.cancelled) break;
-            if (pipeline.sleeping.has(handler.callback)) continue;
-            if (emitTags.length > 0) {
-                if (!handler.tags && !(handler.tags.length > 0)) continue;
-                const hasMatchingTag = handler.tags.some((tag) =>
-                    emitTags.includes(tag),
-                );
-                if (!hasMatchingTag) continue;
-            }
-
-            eventObject.context = handler.context;
-            eventObject.listenerName = handler.name;
-
-            try {
-                if (
-                    handler.customPredicate &&
-                    !handler.customPredicate(eventObject, data)
-                )
-                    continue;
-
-                // TODO: Optimise this!
-                if (
-                    handler.globalPredicates &&
-                    handler.globalPredicates.length > 0
-                ) {
-                    const predicates = handler.globalPredicates.map(
-                        (predicate) => {
-                            return pipeline.predicates.get(predicate);
-                        },
-                    );
-                    const predicateResults = predicates.map((predicate) =>
-                        predicate.callback(eventObject, data),
-                    );
-                    if (!predicateResults.every((result) => result)) continue;
+                if (eventObject.cancelled) return;
+                if (handler.sleeping) return;
+                if (emitTags.length > 0) {
+                    if (
+                        handler.tags.length > 0 &&
+                        !handler.tags.some((tag) => emitTags.includes(tag))
+                    )
+                        return;
                 }
 
-                handler.preEvent?.(eventObject, data);
-                // Handle cancellation when called by the handler's preEvent
-                if (eventObject.cancelled) continue;
+                eventObject.context = handler.context;
+                eventObject.listenerName = handler.name;
 
-                let t1;
-                if (handler.metadata.performance) t1 = performance.now();
-                handler.callback(eventObject, data);
+                try {
+                    if (
+                        handler.customPredicate &&
+                        !handler.customPredicate(eventObject, data)
+                    )
+                        return;
 
-                if (handler.metadata.performance) {
-                    eventObject.context.metrics = {
-                        duration: performance.now() - (t1 ?? 0),
-                    };
+                    if (
+                        handler.globalPredicates &&
+                        Object.keys(handler.globalPredicates).length > 0
+                    ) {
+                        for (const [
+                            predicateName,
+                            predicateParam,
+                        ] of Object.entries(handler.globalPredicates)) {
+                            const predicate =
+                                pipeline.predicates.get(predicateName);
+                            if (!predicate) continue;
+
+                            if (
+                                !predicate.callback(
+                                    eventObject,
+                                    data,
+                                    predicateParam,
+                                )
+                            ) {
+                                return;
+                            }
+                        }
+                    }
+
+                    handler.preEvent?.(eventObject, data);
+                    if (eventObject.cancelled) return;
+
+                    let t1;
+                    if (handler.metadata.performance) t1 = performance.now();
+                    handler.callback(eventObject, data);
+
+                    if (handler.metadata.performance) {
+                        eventObject.context.metrics = {
+                            duration: performance.now() - (t1 ?? 0),
+                        };
+                    }
+
+                    handler.postEvent?.(eventObject, data);
+                    if (handler.once) this.off(pipelineName, handler);
+                } catch (error) {
+                    console.error(
+                        `Error in handler for event ${eventName} in pipeline ${pipeline.name}:`,
+                        error,
+                    );
                 }
-
-                handler.postEvent?.(eventObject, data);
-                if (handler.once) this.off(pipelineName, eventName, handler);
-            } catch (error) {
-                console.error(
-                    `Error in handler for event ${eventName} in pipeline ${pipeline.name}:`,
-                    error,
-                );
-            }
-        }
+            },
+            {
+                preserveItems: true,
+            },
+        );
     },
 
     /**
@@ -303,11 +289,12 @@ const SoulDew = Object.freeze({
      * @param {function(EventObject, any[]): void} callback - Callback to execute when event is emitted
      * @param {HandlerOptions} [options] - Options for the handler
      * @throws {Error} If event is not registered for the pipeline
+     * @returns {HandlerInterface} An interface with methods to control the handler.
      *
      * @example
      * ```js
      * // Register a handler for 'userLoggedIn' events with high priority
-     * SoulDew.on('auth', 'userLoggedIn', (event, [userData]) => {
+     * const handlerControl = SoulDew.on('auth', 'userLoggedIn', (event, [userData]) => {
      *   console.log(`User logged in: ${userData.username}`);
      *   if (userData.isBanned) {
      *     event.cancelEvent(); // Prevent other handlers from processing this login
@@ -322,13 +309,10 @@ const SoulDew = Object.freeze({
                 `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
             );
 
-        if (!pipeline.handlers.has(eventName)) {
-            pipeline.handlers.set(eventName, []);
-        }
-
-        const handlers = pipeline.handlers.get(eventName);
         const handler = {
             callback,
+            eventName,
+            sleeping: false,
             priority: options.priority ?? 0,
             once: options.once ?? false,
             metadata: options.metadata ?? {},
@@ -337,15 +321,18 @@ const SoulDew = Object.freeze({
             preEvent: options.preEvent ?? null,
             postEvent: options.postEvent ?? null,
             customPredicate: options.customPredicate ?? null,
-            globalPredicates: options.globalPredicates ?? [],
             tags: options.tags ?? [],
+            globalPredicates: options.globalPredicates ?? [],
         };
 
-        handlers.push(handler);
-        // this.priorityQueue.addTask(handler);
+        pipeline.priorityQueue.enqueue(handler);
 
-        // Hotfix: Sort by array
-        handlers.sort((a, b) => b.priority - a.priority);
+        return {
+            handler,
+            sleep: () => (handler.sleeping = true),
+            wake: () => (handler.sleeping = false),
+            off: () => pipeline.off(handler),
+        };
     },
 
     /**
@@ -387,23 +374,11 @@ const SoulDew = Object.freeze({
     /**
      * Removes an event handler from a specific pipeline and event
      * @param {string} pipelineName - Name of the pipeline
-     * @param {string} eventName - Name of the event
-     * @param {Function} handler - Handler function to remove
+     * @param {Function} handler - Handler object to remove
      */
-    off(pipelineName, eventName, handler) {
+    off(pipelineName, handler) {
         const pipeline = this.getPipeline(pipelineName);
-
-        const handlers = pipeline.handlers.get(eventName);
-        if (handlers) {
-            const index = handlers.findIndex((h) => h.callback === handler);
-
-            if (index > -1) {
-                handlers.splice(index, 1);
-                if (handlers.length === 0) {
-                    pipeline.handlers.delete(eventName);
-                }
-            }
-        }
+        pipeline.priorityQueue.delete(handler);
     },
 
     /**
@@ -416,38 +391,18 @@ const SoulDew = Object.freeze({
         const pipeline = this.getPipeline(pipelineName);
 
         const handlers = pipeline.responseHandlers.get(eventName);
-        if (handlers) {
-            const index = handlers.findIndex((h) => h.callback === handler);
+        handlers.delete(handler);
 
-            if (index > -1) {
-                handlers.splice(index, 1);
-                if (handlers.length === 0) {
-                    pipeline.responseHandlers.delete(eventName);
-                }
-            }
+        if (handlers.length === 0) {
+            pipeline.handlers.delete(eventName);
         }
     },
 
     /**
-     * Puts a listener to sleep (temporarily disables it)
+     * Registers a global predicate within a specific pipeline.
      * @param {string} pipelineName - Name of the pipeline
-     * @param {Function} listen - Listener function to put to sleep
+     * @param {Function} predicate - A callback serving as the predicate
      */
-    sleep(pipelineName, listen) {
-        const pipeline = this.getPipeline(pipelineName);
-        pipeline.sleeping.add(listen);
-    },
-
-    /**
-     * Wakes a sleeping listener
-     * @param {string} pipelineName - Name of the pipeline
-     * @param {Function} listen - Listener function to wake
-     */
-    wake(pipelineName, listen) {
-        const pipeline = this.getPipeline(pipelineName);
-        pipeline.sleeping.delete(listen);
-    },
-
     registerPredicate(pipelineName, predicate) {
         const pipeline = this.getPipeline(pipelineName);
         pipeline.predicates.set(predicate.name, predicate);
