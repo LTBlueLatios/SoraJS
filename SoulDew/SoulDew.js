@@ -17,15 +17,18 @@ const HandlerStruct = new Struct({
 });
 
 /**
- * SoulDew event pipeline system. A highly efficient event system that uses
- * the philosophical concept of "pipelines", aka groups of events that can be
- * emitted and listened to. The pipelines concept is created to facilitate
+ * SoulDew is a core module within SoraJS, serving as the main data communication centre.
+ * It is a highly efficient event system that uses the philosophical concept of "pipelines",
+ * aka groups of events that can be emitted and listened to. The pipelines concept is created to facilitate
  * controlled, explicit communication between different parts of the system.
  *
  * The usage of pipelines provides an effective solution for modular event emitting
  * and preventing event spaghettification. Each pipeline represents a dedicated
  * communication channel with a strictly defined set of events that can occur on it.
  * Several utilities are provided for your convenience.
+ *
+ * SoulDew helps SoraJS abstract and build with event-based programming, upholding
+ * a core principle within the SoraJS architecture.
  *
  * @namespace
  */
