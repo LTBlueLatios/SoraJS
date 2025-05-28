@@ -47,7 +47,6 @@ describe("SoulDew", () => {
         );
 
         pipeline.emit("TestEvent", {});
-
         assert.deepStrictEqual(results, ["high", "medium", "low"]);
     });
 

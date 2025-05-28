@@ -1,3 +1,21 @@
+import { Struct } from "../Utilities/ObjectFactory.js";
+
+const HandlerStruct = new Struct({
+    callback: Function,
+    eventName: "",
+    sleeping: false,
+    priority: 0,
+    once: false,
+    metadata: null,
+    name: "",
+    context: null,
+    preEvent: null,
+    postEvent: null,
+    customPredicate: null,
+    tags: Array,
+    globalPredicates: null,
+});
+
 /**
  * SoulDew event pipeline system. A highly efficient event system that uses
  * the philosophical concept of "pipelines", aka groups of events that can be
@@ -87,10 +105,7 @@ const SoulDew = Object.freeze({
         };
 
         const handlers = pipeline.listeners.get(eventName);
-        if (!handlers)
-            throw new Error(
-                `No handlers for event ${eventName} in pipeline ${pipeline.name}`,
-            );
+        if (!handlers || handlers.length === 0) return;
 
         for (const handler of handlers) {
             if (eventObject.cancelled) break;
@@ -144,10 +159,10 @@ const SoulDew = Object.freeze({
                 if (eventObject.cancelled) break;
 
                 let t1;
-                if (handler.metadata.performance) t1 = performance.now();
+                if (handler.metadata?.performance) t1 = performance.now();
                 handler.callback(eventObject, data);
 
-                if (handler.metadata.performance) {
+                if (handler.metadata?.performance) {
                     eventObject.context.metrics = {
                         duration: performance.now() - (t1 ?? 0),
                     };
@@ -169,6 +184,10 @@ const SoulDew = Object.freeze({
      *
      * Unlike emit which triggers all handlers, request stops at the first handler
      * that returns a non-undefined value and returns that value.
+     * The philosophy if requests is to follow the request/response pattern, where
+     * a system can request an action from another system with zero required knowledge
+     * or dependencies. Requests serve to enforce the decoupling of systems through a
+     * an easy and concise manner.
      *
      * @param {PipelineState} pipeline - State of the pipeline
      * @param {string} eventName - Name of the event to request
@@ -176,8 +195,11 @@ const SoulDew = Object.freeze({
      * @returns {any} The first non-undefined response or null if none
      *
      * @example
+     * ```js
      * // Request user data and get the first valid response
-     * const userData = SoulDew.request('users', 'getUserData', 123);
+     * const userPipeline = SoulDew.createPipeline("User", ["getUserData"]);
+     * const userData = userPipeline.request("getUserData", { username: "Alice" });
+     * ```
      */
     request(pipeline, eventName, ...data) {
         const responseHandlers = pipeline.responseHandlers.get(eventName);
@@ -199,7 +221,7 @@ const SoulDew = Object.freeze({
      *
      * @param {PipelineState} pipeline - State of the pipeline
      * @param {string} eventName - Name of the event to listen for
-     * @param {function(EventObject, any[]): void} callback - Callback to execute when event is emitted
+     * @param {function(EventObject, object): void} callback - Callback to execute when event is emitted
      * @param {HandlerOptions} [options] - Options for the handler
      * @throws {Error} If event is not registered for the pipeline
      * @returns {HandlerInterface} An interface with methods to control the handler.
@@ -208,10 +230,10 @@ const SoulDew = Object.freeze({
      * ```js
      * // Register a handler for 'userLoggedIn' events with high priority
      * const authPipeline = SoulDew.createPipeline("Authentication", ["userLoggedIn"]);
-     * const handlerControl = authPipeline.on('auth', 'userLoggedIn', (event, [userData]) => {
+     * const handlerControl = authPipeline.on('auth', 'userLoggedIn', (event, userData) => {
      *     console.log(`User logged in: ${userData.username}`);
      *     if (userData.isBanned) event.cancelEvent(); // Prevent other handlers from processing this login
-     * }, { priority: 10, metadata: { performance: true } });
+     * }, { priority: 10 });
      * ```
      */
     on(pipeline, eventName, callback, options = {}) {
@@ -221,21 +243,15 @@ const SoulDew = Object.freeze({
             );
         }
 
-        const handler = {
-            callback,
-            eventName,
-            sleeping: false,
-            priority: options.priority ?? 0,
-            once: options.once ?? false,
-            metadata: options.metadata ?? {},
-            name: options.name ?? "anonymous",
-            context: options.context ?? {},
-            preEvent: options.preEvent ?? null,
-            postEvent: options.postEvent ?? null,
-            customPredicate: options.customPredicate ?? null,
-            tags: options.tags ?? [],
-            globalPredicates: options.globalPredicates ?? null,
-        };
+        // [TODO] Uhhhm, fix this TS monstrosity?
+        // Somehow?
+        const handler = /** @type {Handler} */ (
+            HandlerStruct.spawn({
+                callback,
+                eventName,
+                ...options,
+            })
+        );
 
         if (!pipeline.listeners.has(eventName)) {
             pipeline.listeners.set(eventName, []);

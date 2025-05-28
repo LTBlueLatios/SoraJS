@@ -407,16 +407,15 @@ class IDGenerator {
  * todo - Add type checks and validation.
  */
 class Struct {
-    #compiledTemplate;
-
+    #template;
     static DEFAULT_VALUES = {
         number: 0,
-        object: () => ({}),
+        object: {},
         string: "",
     };
 
     // @ts-ignore
-    static CONSTRUCTOR_DEFAULTS = new Map([
+    static FUNCTION_VALUES = new Map([
         [Function, () => {}],
         [Map, new Map()],
         [Set, new Set()],
@@ -425,70 +424,48 @@ class Struct {
     ]);
 
     constructor(template) {
-        this.#compiledTemplate = this.#compileTemplate(template);
+        this.#template = template;
     }
 
-    #compileTemplate(template) {
-        const compiled = [];
-
-        for (const [key, value] of Object.entries(template)) {
-            const entry = { key };
-
-            if (typeof value === "function" && value.prototype) {
-                entry.type = "constructor";
-                entry.constructor = value;
-                entry.defaultFactory =
-                    Struct.CONSTRUCTOR_DEFAULTS.get(value) || (() => null);
-            } else {
-                entry.type = "primitive";
-                entry.expectedType = typeof value;
-                entry.defaultValue = Struct.DEFAULT_VALUES[typeof value];
-            }
-
-            compiled.push(entry);
-        }
-
-        return compiled;
-    }
-
-    spawn(values = {}) {
+    spawn(values) {
         const result = {};
 
-        for (let i = 0; i < this.#compiledTemplate.length; i++) {
-            const entry = this.#compiledTemplate[i];
-            const key = entry.key;
+        for (const [key, value] of Object.entries(this.#template)) {
             const providedValue = values[key];
-
-            if (providedValue === null) {
-                result[key] = null;
-                continue;
-            }
 
             if (providedValue === undefined) {
                 result[key] =
-                    entry.type === "constructor"
-                        ? entry.defaultFactory()
-                        : entry.defaultValue;
+                    typeof value === "function" && value.prototype
+                        ? Struct.FUNCTION_VALUES.get(value) || null
+                        : Struct.DEFAULT_VALUES[value];
                 continue;
             }
 
-            if (entry.type === "constructor") {
-                result[key] =
-                    providedValue instanceof entry.constructor
-                        ? providedValue
-                        : entry.defaultFactory();
-            } else {
-                result[key] =
-                    typeof providedValue === entry.expectedType
-                        ? providedValue
-                        : entry.defaultValue;
+            if (value === null) {
+                result[key] = providedValue;
+                continue;
             }
+
+            if (typeof value === "function" && value.prototype) {
+                if (!(providedValue instanceof value)) {
+                    result[key] = Struct.FUNCTION_VALUES.get(value) || null;
+                    continue;
+                }
+            } else if (typeof providedValue != typeof value) {
+                result[key] = Struct.DEFAULT_VALUES[typeof value] ?? value;
+                continue;
+            }
+
+            result[key] = providedValue;
         }
 
         return result;
     }
 }
 
+/**
+ * @todo Extract MinHeap
+ */
 class PriorityQueue {
     #heap = [];
 
@@ -502,30 +479,18 @@ class PriorityQueue {
     /**
      * Processes the entire queue with a callback function
      * @param {Function} processor - Function to process each element
-     * @param {object} options - Options for processing
-     * @param {number} [options.limit=Infinity] - Maximum number of elements to process
-     * @param {boolean} [options.preserveItems=false] - Whether to preserve items in the queue
+     * @param {number} [limit=Infinity] - Maximum number of elements to process
      * @returns {Array} Array of processed elements
      */
-    processQueue(processor, options = {}) {
+    processQueue(processor, limit = Infinity) {
         const results = [];
         let count = 0;
-        const limit = options.limit ?? Infinity;
-        const preserveItems = options.preserveItems ?? false;
 
-        if (preserveItems) {
-            for (let i = 0; i < this.#heap.length && count < limit; i++) {
-                const result = processor(this.#heap[i]);
-                results.push(result);
-                count++;
-            }
-        } else {
-            while (!this.isEmpty() && count < limit) {
-                const item = this.dequeue();
-                const result = processor(item);
-                results.push(result);
-                count++;
-            }
+        while (!this.isEmpty() && count < limit) {
+            const item = this.dequeue();
+            const result = processor(item);
+            results.push(result);
+            count++;
         }
 
         return results;

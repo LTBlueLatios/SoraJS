@@ -13,13 +13,12 @@ bench.add("SoulDew", () => {
     testPipeline.emit("TestEvent", {});
 });
 
-bench.runSync();
-console.log(bench.table());
-
 const eventEmitter = new EventEmitter();
 eventEmitter.on("TestEvent", () => {});
+
 bench.add("EventEmitter", () => {
     eventEmitter.emit("TestEvent", {});
 });
+
 bench.runSync();
 console.log(bench.table());
