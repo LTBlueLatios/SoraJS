@@ -215,6 +215,12 @@ const SoulDew = Object.freeze({
      * ```
      */
     on(pipeline, eventName, callback, options = {}) {
+        if (!pipeline.validEvents.has(eventName)) {
+            throw new Error(
+                `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
+            );
+        }
+
         const handler = {
             callback,
             eventName,
@@ -235,13 +241,12 @@ const SoulDew = Object.freeze({
             pipeline.listeners.set(eventName, []);
         }
 
-        if (!pipeline.listeners.has(eventName)) {
-            pipeline.listeners.set(eventName, []);
-        }
-
         const handlers = pipeline.listeners.get(eventName);
         if (!handlers)
             throw new Error("Unexpected error: handlers should exist");
+
+        handlers.push(handler);
+        handlers.sort((a, b) => b.priority - a.priority);
 
         return {
             handler,
