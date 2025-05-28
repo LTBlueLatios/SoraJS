@@ -45,7 +45,7 @@
  * @property {string} name - The name of the pipeline
  * @property {function(string, ...any): void} emit - Emits an event on this pipeline
  * @property {function(string, ...any): any} request - Sends a request to this pipeline and returns the first non-undefined response
- * @property {function(string, function(EventObject, object): void, HandlerOptions=): HandlerInterface} on - Registers an event handler for this pipeline
+ * @property {function(string, function(object, EventObject): void, HandlerOptions=): HandlerInterface} on - Registers an event handler for this pipeline
  * @property {function(string, function(any[]): any): void} onRequest - Registers a request handler for this pipeline
  * @property {function(string, Function): void} off - Removes an event handler from this pipeline
  * @property {function(string, Function): void} offRequest - Removes a request handler from this pipeline

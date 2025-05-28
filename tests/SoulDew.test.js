@@ -11,7 +11,7 @@ describe("SoulDew", () => {
 
     test("Emitting Events", () => {
         let message;
-        pipeline.on("TestEvent", (_, data) => {
+        pipeline.on("TestEvent", (data) => {
             message = data.message;
         });
 
@@ -53,7 +53,7 @@ describe("SoulDew", () => {
     test("Cancelling Listeners", () => {
         let message = "Initial";
 
-        pipeline.on("TestEvent", (eventObject, data) => {
+        pipeline.on("TestEvent", (data, eventObject) => {
             message = data.message;
             eventObject.cancelEvent();
         });
@@ -89,7 +89,7 @@ describe("SoulDew", () => {
                 i++;
             },
             {
-                customPredicate: (_, data) => data.message === "Hello, World!",
+                customPredicate: (data) => data.message === "Hello, World!",
             },
         );
 
@@ -104,7 +104,7 @@ describe("SoulDew", () => {
         let passedParameter;
         pipeline.registerPredicate({
             name: "TestPredicate",
-            callback: (_, data, predicateParam) => {
+            callback: (data, predicateParam) => {
                 passedParameter = predicateParam;
                 return data.message === "Hello, World!";
             },

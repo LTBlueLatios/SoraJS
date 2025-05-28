@@ -143,7 +143,7 @@ const SoulDew = Object.freeze({
             try {
                 if (
                     handler.customPredicate &&
-                    !handler.customPredicate(eventObject, data)
+                    !handler.customPredicate(data, eventObject)
                 )
                     continue;
 
@@ -162,9 +162,9 @@ const SoulDew = Object.freeze({
 
                         if (
                             !predicate.callback(
-                                eventObject,
                                 data,
                                 predicateParam,
+                                eventObject,
                             )
                         ) {
                             shouldSkip = true;
@@ -174,12 +174,12 @@ const SoulDew = Object.freeze({
                     if (shouldSkip) continue;
                 }
 
-                handler.preEvent?.(eventObject, data);
+                handler.preEvent?.(data, eventObject);
                 if (eventObject.cancelled) break;
 
                 let t1;
                 if (handler.metadata?.performance) t1 = performance.now();
-                handler.callback(eventObject, data);
+                handler.callback(data, eventObject);
 
                 if (handler.metadata?.performance) {
                     eventObject.context.metrics = {
@@ -187,7 +187,7 @@ const SoulDew = Object.freeze({
                     };
                 }
 
-                handler.postEvent?.(eventObject, data);
+                handler.postEvent?.(data, eventObject);
                 if (handler.once) this.off(pipeline, handler);
             } catch (error) {
                 console.error(
@@ -240,7 +240,7 @@ const SoulDew = Object.freeze({
      *
      * @param {PipelineState} pipeline - State of the pipeline
      * @param {string} eventName - Name of the event to listen for
-     * @param {function(EventObject, object): void} callback - Callback to execute when event is emitted
+     * @param {function(object, EventObject): void} callback - Callback to execute when event is emitted
      * @param {HandlerOptions} [options] - Options for the handler
      * @throws {Error} If event is not registered for the pipeline
      * @returns {HandlerInterface} An interface with methods to control the handler.
