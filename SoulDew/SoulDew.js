@@ -1,3 +1,4 @@
+import { createPrivateState } from "../Utilities/FunctionUtility.js";
 import { Struct } from "../Utilities/ObjectFactory.js";
 
 const HandlerStruct = new Struct({
@@ -7,7 +8,7 @@ const HandlerStruct = new Struct({
     priority: 0,
     once: false,
     metadata: null,
-    name: "",
+    name: "anonymous",
     context: null,
     preEvent: null,
     postEvent: null,
@@ -15,6 +16,17 @@ const HandlerStruct = new Struct({
     tags: Array,
     globalPredicates: null,
 });
+
+const SOULDEW_STATE = createPrivateState({ eventsPerSecond: 0 })
+    .addPublicMethods({
+        calledEvent(privateState) {
+            privateState.eventsPerSecond++;
+        },
+        resetEventCount(privateState) {
+            privateState.eventsPerSecond = 0;
+        },
+    })
+    .build();
 
 /**
  * SoulDew is a core module within SoraJS, serving as the main data communication centre.
@@ -81,7 +93,11 @@ const SoulDew = Object.freeze({
      *
      * @todo Consider refactoring this method to use a plugin registry for cleanup
      * and robustness. This would allow for better management of event handlers and
-     * their associated metadata.
+     * their associated metadata. You can accomplish this by categorising all utility
+     * tasks as pre or post operations (maybe operation itself should be included?).
+     * This can make the emission process extremely modulated and paves the way for
+     * an easy implementation of custom emitters. They'll probably need a corresponding
+     * internal state object for something like metrics.
      */
     emit(pipeline, eventName, data, options = {}) {
         if (!pipeline.validEvents.has(eventName)) {

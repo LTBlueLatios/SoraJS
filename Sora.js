@@ -4,6 +4,7 @@ import * as ObjectFactory from "./Utilities/ObjectFactory.js";
 import * as MathUtility from "./Utilities/Math.js";
 import * as AlgorithmUtility from "./Utilities/AlgorithmUtility.js";
 import * as CryptoUtility from "./Utilities/CryptoUtility.js";
+import * as FunctionalUtility from "./Utilities/FunctionUtility.js";
 
 const Sora = Object.seal({
     version: "InDev",
@@ -16,17 +17,6 @@ const Sora = Object.seal({
     },
 });
 
-globalThis.SoraJS = Object.seal({
-    SoulDew,
-    OPFSWrapper,
-    ObjectFactory,
-    MathUtility,
-    AlgorithmUtility,
-    CryptoUtility,
-});
-
-globalThis.Sora = Sora;
-
 export {
     Sora,
     SoulDew,
@@ -35,4 +25,5 @@ export {
     MathUtility,
     AlgorithmUtility,
     CryptoUtility,
+    FunctionalUtility,
 };
