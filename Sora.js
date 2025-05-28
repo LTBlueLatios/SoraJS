@@ -8,7 +8,7 @@ import * as FunctionalUtility from "./Utilities/FunctionUtility.js";
 
 const Sora = Object.seal({
     version: "InDev",
-    enviornment: typeof window !== "undefined" ? "Browser" : "Node",
+    environment: typeof window !== "undefined" ? "Browser" : "Node",
     debug: false,
     debugLevel: 0,
     toggleDebug() {
