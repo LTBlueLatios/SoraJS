@@ -375,36 +375,32 @@ class IDGenerator {
 }
 
 /**
- * An implementation for structs within JavaScript, following SoraJS's architecture.
+ * @abstract An implementation for structs within JavaScript, following SoraJS's architecture.
  *
- * @abstract
  * Structs provide a way to define templates for objects with explicit property definitions
  * and default values. It also serves the role of providing explicit documentation of intended
  * object structures within SoraJS's architecture.
  *
- * @param {Object} template - The blueprint object containing default property values
- * @returns {Object} An object with a spawn method for creating instances of the struct
- *
  * @example
+ * ```js
  * // Define a User struct
  * const UserStruct = new Struct({
- *   id: '',
- *   name: '',
- *   email: '',
- *   isActive: false,
- *   createdAt: null
+ *     id: '',
+ *     name: '',
+ *     email: '',
+ *     isActive: false,
+ *     createdAt: null
  * });
  *
  * // Create a user instance
  * const user = UserStruct.spawn({
- *   id: '123',
- *   name: 'John Doe',
- *   email: 'john@example.com',
- *   isActive: true,
- *   createdAt: new Date()
+ *     id: '123',
+ *     name: 'John Doe',
+ *     email: 'john@example.com',
+ *     isActive: true,
+ *     createdAt: new Date()
  * });
- *
- * todo - Add type checks and validation.
+ * ```
  */
 class Struct {
     #template;
