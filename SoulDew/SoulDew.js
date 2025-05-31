@@ -1,126 +1,366 @@
-import AltoMare from "./AltoMare";
+import { Struct } from "../Utilities/ObjectFactory.js";
 
-class SoulDew {
-    #listeners = new Map();
-    #states = new Map();
+const HandlerStruct = new Struct({
+    callback: Function,
+    eventName: "",
+    sleeping: false,
+    priority: 0,
+    once: false,
+    metadata: null,
+    name: "anonymous",
+    context: null,
+    preEvent: null,
+    postEvent: null,
+    customPredicate: null,
+    tags: Array,
+    globalPredicates: null,
+});
 
-    #altoMare = new AltoMare();
+/**
+ * SoulDew is a core module within SoraJS, serving as the main data communication centre.
+ * It is a highly efficient event system that uses the philosophical concept of "pipelines",
+ * aka groups of events that can be emitted and listened to. The pipelines concept is created to facilitate
+ * controlled, explicit communication between different parts of the system.
+ *
+ * The usage of pipelines provides an effective solution for modular event emitting
+ * and preventing event spaghettification. Each pipeline represents a dedicated
+ * communication channel with a strictly defined set of events that can occur on it.
+ * Several utilities are provided for your convenience.
+ *
+ * SoulDew helps SoraJS abstract and build with event-based programming, upholding
+ * a core principle within the SoraJS architecture.
+ *
+ * @namespace
+ */
+const SoulDew = Object.freeze({
+    /**
+     * Creates a pipeline via the child-factory relationship. These children are expected
+     * to be stored somewhere within the codebase, and are automatically passed when
+     * using the returned interface.
+     *
+     * @param {string} name - The expected name of the pipeline
+     * @param {Array<String>} validEvents - The valid events that the pipeline can emit
+     * @returns {PipelineInterface} The pipeline interface with bound methods
+     */
+    createPipeline(name, validEvents) {
+        const pipeline = {
+            name: name,
+            validEvents: new Set(validEvents),
+            responseHandlers: new Map(),
+            predicates: new Map(),
+            listeners: new Map(),
+        };
+
+        return {
+            name,
+            emit: SoulDew.emit.bind(SoulDew, pipeline),
+            request: SoulDew.request.bind(SoulDew, pipeline),
+            on: SoulDew.on.bind(SoulDew, pipeline),
+            onRequest: SoulDew.onRequest.bind(SoulDew, pipeline),
+            off: SoulDew.off.bind(SoulDew, pipeline),
+            offRequest: SoulDew.offRequest.bind(SoulDew, pipeline),
+            registerPredicate: SoulDew.registerPredicate.bind(
+                SoulDew,
+                pipeline,
+            ),
+        };
+    },
 
     /**
-     * Adds an event listener.
-     * @param {string} event - The name of the event to listen for.
-     * @param {function} listener - The callback function to execute when the event is emitted.
-     * @param {boolean} [once=false] - If true, the listener will be automatically removed after being invoked once.
-     * @throws {TypeError} If event is not a string or listener is not a function.
+     * Emits an event on a specific pipeline
+     *
+     * When an event is emitted, all registered handlers for that event on the specified
+     * pipeline will be called in order of priority (highest to lowest). Each handler
+     * receives an event object and the data passed to the emit method.
+     *
+     * @param {PipelineState} pipeline - State of the pipeline
+     * @param {string} eventName - Name of the event to emit
+     * @param {Object} data - Data to pass to event handlers
+     * @param {EmitterOptions} options - Options for the emitter
+     * @throws {Error} If event is not registered for the pipeline
+     *
+     * @todo Consider refactoring this method to use a plugin registry for cleanup
+     * and robustness. This would allow for better management of event handlers and
+     * their associated metadata. You can accomplish this by categorising all utility
+     * tasks as pre or post operations (maybe operation itself should be included?).
+     * This can make the emission process extremely modulated and paves the way for
+     * an easy implementation of custom emitters. They'll probably need a corresponding
+     * internal state object for something like metrics.
+     *
+     * Perhaps call on execution `onExecute` or something? Refer to the document.
      */
-    on(event, listener, once = false) {
-        this.#altoMare.checkParams(arguments, ["string", "function"]);
-        const eventObj = { listener, once };
+    emit(pipeline, eventName, data, options = {}) {
+        if (!pipeline.validEvents.has(eventName)) {
+            throw new Error(
+                `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
+            );
+        }
 
-        if (!this.#listeners.has(event)) this.#listeners.set(event, []);
-        this.#listeners.get(event).push(eventObj);
-    }
+        const emitTags = options.tags ?? [];
+        const onCancel = options.onCancel ?? null;
+        const emitterContext = options.context ?? {};
+        const emitterName = options.name ?? "";
 
-    /**
-     * Removes an event listener.
-     * @param {string} event - The name of the event to remove the listener from.
-     * @param {function} listener - The callback function to remove.
-     * @throws {TypeError} If event is not a string or listener is not a function.
-     */
-    off(event, listener) {
-        this.#altoMare.checkParams(arguments, ["string", "function"]);
+        const eventObject = {
+            cancelled: false,
+            listenerName: "",
+            emitterName,
+            cancelEvent() {
+                this.cancelled = true;
+                onCancel?.();
+            },
+            context: {},
+            emitterContext,
+        };
 
-        if (this.#listeners.has(event)) {
-            const listeners = this.#listeners.get(event);
-            const index = listeners.findIndex((obj) => obj.listener === listener);
-            if (index !== -1) {
-                listeners.splice(index, 1);
-                if (listeners.length === 0) {
-                    this.#listeners.delete(event);
+        const handlers = pipeline.listeners.get(eventName);
+        if (!handlers || handlers.length === 0) return;
+
+        for (const handler of handlers) {
+            if (eventObject.cancelled) break;
+            if (handler.sleeping) continue;
+            if (emitTags.length > 0) {
+                if (
+                    handler.tags.length > 0 &&
+                    !handler.tags.some((tag) => emitTags.includes(tag))
+                )
+                    continue;
+            }
+
+            eventObject.context = handler.context;
+            eventObject.listenerName = handler.name;
+
+            try {
+                if (
+                    handler.customPredicate &&
+                    !handler.customPredicate(data, eventObject)
+                )
+                    continue;
+
+                if (
+                    handler.globalPredicates &&
+                    Object.keys(handler.globalPredicates).length > 0
+                ) {
+                    let shouldSkip = false;
+                    for (const [
+                        predicateName,
+                        predicateParam,
+                    ] of Object.entries(handler.globalPredicates)) {
+                        const predicate =
+                            pipeline.predicates.get(predicateName);
+                        if (!predicate) continue;
+
+                        if (
+                            !predicate.callback(
+                                data,
+                                predicateParam,
+                                eventObject,
+                            )
+                        ) {
+                            shouldSkip = true;
+                            break;
+                        }
+                    }
+                    if (shouldSkip) continue;
                 }
+
+                handler.preEvent?.(data, eventObject);
+                if (eventObject.cancelled) break;
+
+                let t1;
+                if (handler.metadata?.performance) t1 = performance.now();
+                handler.callback(data, eventObject);
+
+                if (handler.metadata?.performance) {
+                    eventObject.context.metrics = {
+                        duration: performance.now() - (t1 ?? 0),
+                    };
+                }
+
+                handler.postEvent?.(data, eventObject);
+                if (handler.once) this.off(pipeline, handler);
+            } catch (error) {
+                console.error(
+                    `Error in handler for event ${eventName} in pipeline ${pipeline.name}:`,
+                    error,
+                );
             }
         }
-    }
+    },
 
     /**
-     * Emits an event using CustomEvent.
-     * @param {string} event - The name of the event to emit.
-     * @param {*} [detail] - A value to be passed to the event listener.
-     * @throws {TypeError} If event is not a string.
+     * Sends a request to a pipeline and returns the first non-undefined response
+     *
+     * Unlike emit which triggers all handlers, request stops at the first handler
+     * that returns a non-undefined value and returns that value.
+     * The philosophy if requests is to follow the request/response pattern, where
+     * a system can request an action from another system with zero required knowledge
+     * or dependencies. Requests serve to enforce the decoupling of systems through a
+     * an easy and concise manner.
+     *
+     * @param {PipelineState} pipeline - State of the pipeline
+     * @param {string} eventName - Name of the event to request
+     * @param {...any} data - Data to pass to response handlers
+     * @returns {any} The first non-undefined response or null if none
+     *
+     * @example
+     * ```js
+     * // Request user data and get the first valid response
+     * const userPipeline = SoulDew.createPipeline("User", ["getUserData"]);
+     * const userData = userPipeline.request("getUserData", { username: "Alice" });
+     * ```
      */
-    emit(event, detail) {
-        this.#altoMare.checkParams(arguments, ["string", "any"]);
-        const customEvent = new CustomEvent(event, { detail });
-
-        if (this.#listeners.has(event)) {
-            const listeners = this.#listeners.get(event);
-            for (let i = 0; i < listeners.length; i+= 1) {
-                const { listener, once } = listeners[i];
-
-                listener(customEvent);
-                if (once) {
-                    listeners.splice(i, 1);
-                    i-= 1;
-                }
+    request(pipeline, eventName, ...data) {
+        const responseHandlers = pipeline.responseHandlers.get(eventName);
+        if (responseHandlers) {
+            for (const handler of responseHandlers) {
+                const response = handler(data);
+                if (response !== undefined) return response;
             }
         }
-
-        document.dispatchEvent(customEvent);
-    }
-
-    /**
-     * Links a state object to the state manager.
-     * @param {string} stateName - A unique name for the state.
-     * @param {Object} state - The state object to observe.
-     * @throws {TypeError} If stateName is not a string, object, or null.
-     */
-    observeState(stateName, state) {
-        this.#altoMare.checkParams(arguments, ["string", "object"]);
-        this.#states.set(stateName, state);
-    }
+        return null;
+    },
 
     /**
-     * Sets new values to properties in the observed state.
-     * Optionally emits a 'stateChange' event for the changed properties.
-     * @param {string} stateName - The name of the state to update.
-     * @param {Object} newState - An object with new state values to set directly onto the existing state.
-     * @param {boolean} [emitEvent=true] - Whether to emit a 'stateChange' event.
-     * @throws {Error} If the state does not exist.
+     * Registers an event handler for a specific pipeline and event
+     *
+     * The handler function receives two parameters:
+     * 1. An event object with properties like `cancelled` and methods like `cancelEvent()`
+     * 2. An array containing all data passed to the emit call
+     *
+     * @param {PipelineState} pipeline - State of the pipeline
+     * @param {string} eventName - Name of the event to listen for
+     * @param {function(object, EventObject): void} callback - Callback to execute when event is emitted
+     * @param {HandlerOptions} [options] - Options for the handler
+     * @throws {Error} If event is not registered for the pipeline
+     * @returns {HandlerInterface} An interface with methods to control the handler.
+     *
+     * @example
+     * ```js
+     * // Register a handler for 'userLoggedIn' events with high priority
+     * const authPipeline = SoulDew.createPipeline("Authentication", ["userLoggedIn"]);
+     * const handlerControl = authPipeline.on('auth', 'userLoggedIn', (event, userData) => {
+     *     console.log(`User logged in: ${userData.username}`);
+     *     if (userData.isBanned) event.cancelEvent(); // Prevent other handlers from processing this login
+     * }, { priority: 10 });
+     * ```
      */
-    setState(stateName, newState, emitEvent = true) {
-        this.#altoMare.checkParams(arguments, ["string", "object", "boolean"]);
+    on(pipeline, eventName, callback, options = {}) {
+        if (!pipeline.validEvents.has(eventName)) {
+            throw new Error(
+                `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
+            );
+        }
 
-        const currentState = this.#states.get(stateName);
-        if (!currentState) throw new Error(`State "${stateName}" not found`);
+        // [TODO] Uhhhm, fix this TS monstrosity?
+        // Somehow?
+        const handler = /** @type {Handler} */ (
+            HandlerStruct.spawn({
+                callback,
+                eventName,
+                ...options,
+            })
+        );
 
-        for (const key in newState) {
-            if (Object.hasOwn(newState, key)) {
-                currentState[key] = newState[key];
-                if (emitEvent) {
-                    this.emit(`stateChange:${stateName}`, {
-                        value: newState[key],
-                    });
-                }
+        if (!pipeline.listeners.has(eventName)) {
+            pipeline.listeners.set(eventName, []);
+        }
+
+        const handlers = pipeline.listeners.get(eventName);
+        if (!handlers)
+            throw new Error("Unexpected error: handlers should exist");
+
+        handlers.push(handler);
+        handlers.sort((a, b) => b.priority - a.priority);
+
+        return {
+            handler,
+            sleep: () => (handler.sleeping = true),
+            wake: () => (handler.sleeping = false),
+            off: () => SoulDew.off(pipeline, handler),
+        };
+    },
+
+    /**
+     * Registers a request handler for a specific pipeline and event
+     *
+     * The handler function receives an array of data passed to the request method
+     * and should return a value if it can handle the request, or undefined to allow
+     * other handlers to process it.
+     *
+     * @param {PipelineState} pipeline - State of the pipeline
+     * @param {string} eventName - Name of the event to handle requests for
+     * @param {function(any[]): any} handler - Handler function that receives request data and returns a response
+     * @throws {Error} If event is not registered for the pipeline
+     *
+     * @example
+     * // Register a handler that responds to getUserData requests
+     * SoulDew.onRequest('users', 'getUserData', ([userId]) => {
+     *     if (userId === 123) return { id: 123, name: 'Example User', role: 'admin' };
+     *     // Return undefined to let other handlers try to handle this request
+     * });
+     */
+    onRequest(pipeline, eventName, handler) {
+        if (!pipeline.validEvents.has(eventName))
+            throw new Error(
+                `Event ${eventName} is not registered for pipeline ${pipeline.name}`,
+            );
+
+        if (!pipeline.responseHandlers.has(eventName)) {
+            pipeline.responseHandlers.set(eventName, new Set());
+        }
+
+        const handlers = pipeline.responseHandlers.get(eventName);
+        handlers?.add(handler);
+    },
+
+    /**
+     * Removes an event handler from a specific pipeline and event
+     * @param {PipelineState} pipeline - State of the pipeline
+     * @param {Handler} handler - Handler object to remove
+     */
+    off(pipeline, handler) {
+        const handlers = pipeline.listeners.get(handler.eventName);
+        if (handlers) {
+            const index = handlers.indexOf(handler);
+            if (index > -1) {
+                handlers.splice(index, 1);
             }
         }
-    }
+    },
 
     /**
-     * Gets the state object by its name.
-     * @param {string} stateName - The name of the state to retrieve.
-     * @returns {Object} The state object.
+     * Removes a request handler from a specific pipeline and event
+     * @param {PipelineState} pipeline - State of the pipeline
+     * @param {string} eventName - Name of the event
+     * @param {Function} handler - Handler function to remove
      */
-    getState(stateName) {
-        return this.#states.get(stateName);
-    }
+    offRequest(pipeline, eventName, handler) {
+        const handlers = pipeline.responseHandlers.get(eventName);
+        if (handlers) {
+            handlers.delete(handler);
+
+            if (handlers.size === 0) {
+                pipeline.responseHandlers.delete(eventName);
+            }
+        }
+    },
 
     /**
-     * Removes a state from observation.
-     * @param {string} stateName - The name of the state to remove.
+     * Registers a global predicate within a specific pipeline.
+     *
+     * A global predicate is different from a local predicate in the sense that it,
+     * when configured to do so, checks all listeners with the same predicate.
+     * Use global predicates when you find that a certain predicate is not specialised
+     * and can be applied universally.
+     *
+     * @param {PipelineState} pipeline - State of the pipeline
+     * @param {Function} predicate - A callback serving as the predicate
+     * @todo Add validation via JSDoc and runtime checking.
      */
-    removeState(stateName) {
-        this.#states.delete(stateName);
-    }
-}
+    registerPredicate(pipeline, predicate) {
+        pipeline.predicates.set(predicate.name, predicate);
+    },
+});
 
 export default SoulDew;
