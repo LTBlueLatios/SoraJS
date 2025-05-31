@@ -1,4 +1,3 @@
-import { createPrivateState } from "../Utilities/FunctionUtility.js";
 import { Struct } from "../Utilities/ObjectFactory.js";
 
 const HandlerStruct = new Struct({
@@ -16,17 +15,6 @@ const HandlerStruct = new Struct({
     tags: Array,
     globalPredicates: null,
 });
-
-const SOULDEW_STATE = createPrivateState({ eventsPerSecond: 0 })
-    .addPublicMethods({
-        calledEvent(privateState) {
-            privateState.eventsPerSecond++;
-        },
-        resetEventCount(privateState) {
-            privateState.eventsPerSecond = 0;
-        },
-    })
-    .build();
 
 /**
  * SoulDew is a core module within SoraJS, serving as the main data communication centre.
@@ -98,6 +86,8 @@ const SoulDew = Object.freeze({
      * This can make the emission process extremely modulated and paves the way for
      * an easy implementation of custom emitters. They'll probably need a corresponding
      * internal state object for something like metrics.
+     *
+     * Perhaps call on execution `onExecute` or something? Refer to the document.
      */
     emit(pipeline, eventName, data, options = {}) {
         if (!pipeline.validEvents.has(eventName)) {
