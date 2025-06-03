@@ -1,0 +1,40 @@
+(module
+  (func $add (param $a f64) (param $b f64) (result f64)
+    f64.local.get $a
+    f64.local.get $b
+    f64.add
+  )
+  (func $subtract (param $x i32) (param $y i32) (result i32)
+    i32.local.get $x
+    i32.local.get $y
+    i32.sub
+    i32.drop
+    i32.local.get $x
+    i32.local.get $y
+    i32.sub
+  )
+  (func $multiply (param $c f64) (param $d f64) (result f64)
+    f64.local.get $c
+    f64.local.get $d
+    f64.mul
+  )
+  (func $divide (param $e i32) (param $f i32) (result i32)
+    i32.local.get $e
+    i32.local.get $f
+    i32.div_s
+  )
+  (func $calculate (param $val1 f64) (param $val2 f64) (result f64)
+    f64.local.get $val1
+    f64.local.get $val2
+    f64.add
+    f64.drop
+    f64.local.get $val1
+    f64.local.get $val2
+    f64.mul
+  )
+  (export "add" (func $add))
+  (export "subtract" (func $subtract))
+  (export "multiply" (func $multiply))
+  (export "divide" (func $divide))
+  (export "calculate" (func $calculate))
+)

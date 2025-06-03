@@ -1,0 +1,21 @@
+{
+    "name": "jwasm",
+    "version": "1.0.0",
+    "description": "JavaScript-like language that transpiles to WebAssembly",
+    "type": "module",
+    "scripts": {
+        "test": "node --test tests/parser.test.js",
+        "test:watch": "node --test --watch tests/parser.test.js",
+        "compile": "node compiler.js"
+    },
+    "keywords": [
+        "webassembly",
+        "compiler",
+        "javascript"
+    ],
+    "author": "",
+    "license": "AGPL-3.0-only",
+    "dependencies": {
+        "chevrotain": "^11.0.3"
+    }
+}

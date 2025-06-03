@@ -1,18 +1,38 @@
 {
-  "name": "sora",
-  "version": "1.0.0",
-  "description": "A library of functional modules made to suit the needs of it's developer. Follows the principles of \"small but mighty\" and coded in pure Javascript.",
-  "main": "index.js",
-  "type": "module",
-  "scripts": {
-    "test": "mocha 'test/**/*.js'"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "chai": "^5.1.1",
-    "mocha": "^10.7.3",
-    "sinon": "^18.0.0"
-  }
+    "name": "@ltbluelatios/sorajs",
+    "version": "0.0.5",
+    "description": "A library of highly specialised and systemically designed modules made to be solution-agnostic.",
+    "main": "Sora.js",
+    "type": "module",
+    "scripts": {
+        "test": "node --test tests/**/*.js",
+        "benchmark": "node benchmarks/runner.js",
+        "check": "npm run test && npm run benchmark"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "@eslint/js": "^9.18.0",
+        "@stylistic/eslint-plugin": "^2.13.0",
+        "eslint": "^9.21.0",
+        "eslint-plugin-functional": "^9.0.1",
+        "eslint-plugin-sonarjs": "^3.0.2",
+        "globals": "^15.14.0"
+    },
+    "dependencies": {
+        "acorn": "^8.14.1",
+        "acorn-walk": "^8.3.4",
+        "astring": "^1.9.0",
+        "chalk": "^5.4.1",
+        "chevrotain": "^11.0.3",
+        "tinybench": "^4.0.1"
+    },
+    "files": [
+        "README.md",
+        "LICENSE",
+        "Sora.js",
+        "SoulDew/**",
+        "Utilities/**"
+    ]
 }
