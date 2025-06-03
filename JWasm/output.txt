@@ -1,0 +1,91 @@
+(module
+  (func $simulateMotion (param $initialVelocity f64) (param $time f64) (param $gravity f64) (result f64)
+    (local $position f64)
+    (local $velocity f64)
+    (local $acceleration f64)
+    f64.const 0.0
+    local.set $position
+    local.get $initialVelocity
+    local.set $velocity
+    f64.const 0.0
+    local.get $gravity
+    f64.sub
+    local.set $acceleration
+    local.get $velocity
+    local.get $time
+    f64.mul
+    f64.const 0.5
+    local.get $acceleration
+    f64.mul
+    local.get $time
+    f64.mul
+    local.get $time
+    f64.mul
+    f64.add
+    local.set $position
+    local.get $position
+    f64.const 0.0
+    f64.lt
+        (if
+          (then
+          f64.const 0.0
+          local.get $position
+          f64.const 0.8
+          f64.mul
+          f64.sub
+          local.set $position
+          f64.const 0.0
+          local.get $velocity
+          f64.const 0.8
+          f64.mul
+          f64.sub
+          local.set $velocity
+          local.get $position
+          f64.const 0.0
+          f64.lt
+              (if
+                (then
+                f64.const 0.0
+                local.set $position
+                f64.const 0.0
+                local.set $velocity
+                )
+              )
+          )
+        )
+    local.get $velocity
+    f64.const 50.0
+    f64.gt
+        (if
+          (then
+          f64.const 50.0
+          local.set $velocity
+          local.get $position
+          f64.const 0.9
+          f64.mul
+          local.set $position
+          )
+          (else
+          local.get $velocity
+          f64.const 0.0
+          f64.const 50.0
+          f64.sub
+          f64.lt
+              (if
+                (then
+                f64.const 0.0
+                f64.const 50.0
+                f64.sub
+                local.set $velocity
+                local.get $position
+                f64.const 0.9
+                f64.mul
+                local.set $position
+                )
+              )
+          )
+        )
+    local.get $position
+  )
+  (export "simulateMotion" (func $simulateMotion))
+)
